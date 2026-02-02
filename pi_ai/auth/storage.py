@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Callable, Dict, Optional
 
 from . import get_env_api_key
-from .oauth import get_oauth_api_key
-from .types import OAuthCredentials
+from .oauth import get_oauth_api_key, get_oauth_provider
+from .types import OAuthCredentials, OAuthLoginCallbacks
 
 
 @dataclass
@@ -37,6 +37,7 @@ class AuthStorage:
         self._path = Path(path)
         self._data: Dict[str, AuthCredential] = {}
         self._runtime_overrides: Dict[str, str] = {}
+        self._fallback_resolver: Optional[Callable[[str], Optional[str]]] = None
         self._load()
 
     def _load(self) -> None:
@@ -70,6 +71,9 @@ class AuthStorage:
         self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         os.chmod(self._path, 0o600)
 
+    def reload(self) -> None:
+        self._load()
+
     def set_api_key(self, provider: str, key: str) -> None:
         self._data[provider] = ApiKeyCredential(type="api_key", key=key)
         self._save()
@@ -90,11 +94,48 @@ class AuthStorage:
     def remove_runtime_api_key(self, provider: str) -> None:
         self._runtime_overrides.pop(provider, None)
 
+    def set_fallback_resolver(self, resolver: Callable[[str], Optional[str]]) -> None:
+        self._fallback_resolver = resolver
+
     def get(self, provider: str) -> Optional[AuthCredential]:
         return self._data.get(provider)
 
+    def remove(self, provider: str) -> None:
+        self._data.pop(provider, None)
+        self._save()
+
     def list_providers(self) -> list[str]:
         return list(self._data.keys())
+
+    def list(self) -> list[str]:
+        return self.list_providers()
+
+    def has(self, provider: str) -> bool:
+        return provider in self._data
+
+    def has_auth(self, provider: str) -> bool:
+        if provider in self._runtime_overrides:
+            return True
+        if provider in self._data:
+            return True
+        if get_env_api_key(provider):
+            return True
+        if self._fallback_resolver and self._fallback_resolver(provider):
+            return True
+        return False
+
+    def get_all(self) -> Dict[str, AuthCredential]:
+        return dict(self._data)
+
+    async def login(self, provider_id: str, callbacks: OAuthLoginCallbacks) -> None:
+        provider = get_oauth_provider(provider_id)
+        if not provider:
+            raise ValueError(f"Unknown OAuth provider: {provider_id}")
+        credentials = await provider.login(callbacks)
+        self.set_oauth(provider_id, credentials)
+
+    def logout(self, provider_id: str) -> None:
+        self.remove(provider_id)
 
     async def get_api_key(
         self,
@@ -140,5 +181,10 @@ class AuthStorage:
         env_key = get_env_api_key(provider)
         if env_key:
             return env_key
+
+        if self._fallback_resolver:
+            fallback = self._fallback_resolver(provider)
+            if fallback:
+                return fallback
 
         return None

@@ -32,5 +32,5 @@ creds = await login_anthropic(
 
 ## Using tokens
 
-Store credentials via `AuthStorage.set_oauth()` and pass `auth_storage` or
-`auth_path` to `create_agent()` to auto-resolve API keys per request.
+Store credentials via `AuthStorage.set_oauth()` or `AuthStorage.login()` and pass
+`auth_storage`/`auth_path` to `create_agent()` to auto-resolve API keys per request.

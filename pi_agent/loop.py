@@ -134,6 +134,7 @@ async def _stream_assistant_response(
         on_payload=config.on_payload,
         reasoning=config.reasoning,
         thinking_budgets=config.thinking_budgets,
+        signal=config.signal,
     )
 
     stream_function = stream_fn or config.stream_fn or stream_simple

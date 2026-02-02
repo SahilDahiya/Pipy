@@ -1,5 +1,5 @@
 from pi_ai.providers import anthropic as anthropic_provider
-from pi_ai.types import Model, ModelCost, TextContent, Tool, ToolResultMessage
+from pi_ai.types import Context, Model, ModelCost, TextContent, Tool, ToolResultMessage, UserMessage
 
 
 def test_oauth_tool_name_normalization():
@@ -60,3 +60,26 @@ def test_cache_retention_long_sets_ttl():
     assert retention == "long"
     assert cache_control is not None
     assert cache_control.get("ttl") == "1h"
+
+
+def test_anthropic_sanitizes_surrogates():
+    model = Model(
+        id="claude",
+        api="anthropic-messages",
+        provider="anthropic",
+        base_url="https://api.anthropic.com/v1",
+        reasoning=True,
+        input=["text"],
+        cost=ModelCost(),
+        context_window=1000,
+        max_tokens=1000,
+    )
+    ctx = Context(
+        system_prompt="hello\ud83d",
+        messages=[UserMessage(content="hi\udc00", timestamp=1)],
+        tools=None,
+    )
+    params = anthropic_provider._build_params(model, ctx, False, None, None)
+    system_text = params["system"][0]["text"]
+    assert "\ud83d" not in system_text
+    assert "\udc00" not in params["messages"][0]["content"]

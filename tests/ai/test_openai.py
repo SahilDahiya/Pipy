@@ -2,7 +2,7 @@ from pi_ai.providers import openai as openai_provider
 from pi_ai.types import Context, ImageContent, TextContent, ToolCall, ToolResultMessage
 from pi_ai.models import create_openai_model
 
-from tests.helpers import create_assistant_message
+from tests.helpers import create_assistant_message, create_user_message
 
 
 def test_openai_tool_result_images_create_user_message():
@@ -31,3 +31,15 @@ def test_openai_adds_empty_tools_when_history_present():
     ctx = Context(system_prompt=None, messages=[assistant], tools=None)
     params = openai_provider._build_params(model, ctx, None)
     assert params["tools"] == []
+
+
+def test_openai_sanitizes_surrogates():
+    model = create_openai_model("gpt-4o-mini", provider="openai")
+    ctx = Context(
+        system_prompt="hello\ud83d",
+        messages=[create_user_message("hi\udc00")],
+        tools=None,
+    )
+    params = openai_provider._build_params(model, ctx, None)
+    assert "\ud83d" not in params["messages"][0]["content"]
+    assert "\udc00" not in params["messages"][1]["content"]

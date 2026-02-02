@@ -112,3 +112,73 @@ def calculate_cost(model: Model, usage: Usage) -> None:
     usage.cost.total = (
         usage.cost.input + usage.cost.output + usage.cost.cache_read + usage.cost.cache_write
     )
+
+
+def _register_if_missing(model: Model) -> None:
+    key = (model.provider, model.id)
+    if key not in _MODEL_REGISTRY:
+        _MODEL_REGISTRY[key] = model
+
+
+def _register_builtin_models() -> None:
+    # OpenAI (completions) defaults
+    _register_if_missing(
+        create_openai_model(
+            "gpt-4o-mini",
+            provider="openai",
+            reasoning=False,
+            input_modalities=["text", "image"],
+            context_window=128000,
+            max_tokens=16384,
+            cost=ModelCost(input=0.15, output=0.6, cache_read=0.08, cache_write=0),
+        )
+    )
+    _register_if_missing(
+        create_openai_model(
+            "gpt-4o",
+            provider="openai",
+            reasoning=False,
+            input_modalities=["text", "image"],
+            context_window=128000,
+            max_tokens=16384,
+            cost=ModelCost(input=2.5, output=10, cache_read=1.25, cache_write=0),
+        )
+    )
+
+    # Anthropic defaults
+    _register_if_missing(
+        create_anthropic_model(
+            "claude-sonnet-4-5",
+            provider="anthropic",
+            reasoning=True,
+            input_modalities=["text", "image"],
+            context_window=200000,
+            max_tokens=64000,
+            cost=ModelCost(input=3, output=15, cache_read=0.3, cache_write=3.75),
+        )
+    )
+    _register_if_missing(
+        create_anthropic_model(
+            "claude-3-5-sonnet-20241022",
+            provider="anthropic",
+            reasoning=False,
+            input_modalities=["text", "image"],
+            context_window=200000,
+            max_tokens=8192,
+            cost=ModelCost(input=3, output=15, cache_read=0.3, cache_write=3.75),
+        )
+    )
+    _register_if_missing(
+        create_anthropic_model(
+            "claude-3-5-haiku-20241022",
+            provider="anthropic",
+            reasoning=False,
+            input_modalities=["text", "image"],
+            context_window=200000,
+            max_tokens=8192,
+            cost=ModelCost(input=0.8, output=4, cache_read=0.08, cache_write=1),
+        )
+    )
+
+
+_register_builtin_models()

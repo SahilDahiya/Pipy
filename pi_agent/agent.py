@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable, List, Optional, Sequence
 
 from pi_ai.types import ImageContent, Message, Model, TextContent, UserMessage
 from pi_ai.providers import stream_simple
+from pi_session.manager import SessionManager
 from pi_tools.base import ToolDefinition
 
 from .events import AgentEventStream
@@ -61,6 +62,7 @@ class Agent:
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         thinking_budgets: Optional[dict] = None,
+        session_manager: Optional[SessionManager] = None,
     ) -> None:
         self._state = AgentState(
             system_prompt=system_prompt,
@@ -76,6 +78,7 @@ class Agent:
         self._convert_to_llm = convert_to_llm or _default_convert_to_llm
         self._stream_fn = stream_fn or stream_simple
         self._session_id = session_id
+        self._session_manager = session_manager
         self._api_key = api_key
         self._headers = headers
         self._max_tokens = max_tokens
@@ -211,6 +214,8 @@ class Agent:
         elif event_type == "message_end":
             self._state.stream_message = None
             self._state.messages.append(event["message"])
+            if self._session_manager is not None:
+                self._session_manager.append_message(event["message"])
         elif event_type == "tool_execution_start":
             self._state.pending_tool_calls.add(event["toolCallId"])
         elif event_type == "tool_execution_end":

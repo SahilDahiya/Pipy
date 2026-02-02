@@ -26,7 +26,14 @@ class SessionManager:
         return str(self._path)
 
     def append_message(self, message: Message) -> None:
-        self.append_entry(SessionEntry(type="message", payload=message.model_dump()))
+        payload: Dict[str, Any]
+        if hasattr(message, "model_dump"):
+            payload = message.model_dump()  # type: ignore[assignment]
+        elif isinstance(message, dict):
+            payload = message
+        else:
+            payload = {"message": str(message)}
+        self.append_entry(SessionEntry(type="message", payload=payload))
 
     def append_entry(self, entry: SessionEntry) -> None:
         with self._path.open("a", encoding="utf-8") as handle:

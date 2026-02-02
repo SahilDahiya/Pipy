@@ -31,6 +31,7 @@ from ..types import (
     ToolResultMessage,
 )
 from ..utils.sanitize_unicode import sanitize_surrogates
+from .simple_options import adjust_max_tokens_for_thinking, build_base_options
 
 ANTHROPIC_VERSION = "2023-06-01"
 CLAUDE_CODE_VERSION = "2.1.2"
@@ -367,23 +368,34 @@ def stream_simple_anthropic(
     if not api_key:
         raise RuntimeError(f"No API key for provider: {model.provider}")
 
-    thinking_budget = None
-    if options and options.reasoning and options.thinking_budgets:
-        thinking_budget = options.thinking_budgets.get(options.reasoning)
+    base = build_base_options(model, options, api_key)
+
+    if not options or not options.reasoning:
+        return stream_anthropic(
+            model,
+            context,
+            AnthropicOptions(
+                **base.__dict__,
+                thinking_enabled=False,
+            ),
+        )
+
+    base_max_tokens = base.max_tokens or model.max_tokens or 1024
+    model_max_tokens = model.max_tokens or base_max_tokens
+    adjusted_max, thinking_budget = adjust_max_tokens_for_thinking(
+        base_max_tokens,
+        model_max_tokens,
+        options.reasoning,
+        options.thinking_budgets,
+    )
 
     return stream_anthropic(
         model,
         context,
         AnthropicOptions(
-            api_key=api_key,
-            headers=options.headers if options else None,
-            max_tokens=options.max_tokens if options else None,
-            temperature=options.temperature if options else None,
-            signal=options.signal if options else None,
-            session_id=options.session_id if options else None,
-            on_payload=options.on_payload if options else None,
-            cache_retention=options.cache_retention if options else None,
-            thinking_enabled=bool(options.reasoning) if options else False,
+            **base.__dict__,
+            max_tokens=adjusted_max,
+            thinking_enabled=True,
             thinking_budget_tokens=thinking_budget,
         ),
     )

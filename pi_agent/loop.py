@@ -225,6 +225,7 @@ async def _stream_assistant_response(
         reasoning=config.reasoning,
         thinking_budgets=config.thinking_budgets,
         signal=config.signal,
+        max_retry_delay_ms=config.max_retry_delay_ms,
     )
 
     stream_function = stream_fn or config.stream_fn or stream_simple

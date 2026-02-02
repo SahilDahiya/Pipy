@@ -112,6 +112,30 @@ async def test_session_id_forwarded():
     assert received["session_id"] == "session-def"
 
 
+@pytest.mark.asyncio
+async def test_max_retry_delay_forwarded():
+    received = {}
+
+    def stream_fn(_model, _context, options):
+        received["max_retry_delay_ms"] = options.max_retry_delay_ms
+        stream = AssistantMessageEventStream()
+
+        async def run():
+            await asyncio.sleep(0)
+            msg = create_assistant_message([TextContent(text="ok")])
+            stream.push({"type": "done", "reason": "stop", "message": msg})
+            stream.end(msg)
+
+        asyncio.create_task(run())
+        return stream
+
+    agent = Agent(model=_model(), max_retry_delay_ms=1234, stream_fn=stream_fn)
+    stream = agent.send("hello")
+    async for _ in stream:
+        pass
+    assert received["max_retry_delay_ms"] == 1234
+
+
 def test_continue_session_requires_valid_last_message():
     agent = Agent(model=_model())
     with pytest.raises(RuntimeError, match="No messages to continue"):

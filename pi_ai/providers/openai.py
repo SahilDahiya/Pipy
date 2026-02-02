@@ -28,6 +28,7 @@ from ..types import (
     Tool,
     ToolCall,
 )
+from .simple_options import build_base_options
 
 
 def _normalize_mistral_tool_id(tool_id: str) -> str:
@@ -309,23 +310,21 @@ def stream_simple_openai_completions(
     if not api_key:
         raise RuntimeError(f"No API key for provider: {model.provider}")
 
+    base = build_base_options(model, options, api_key)
+
     reasoning = options.reasoning if options else None
     if reasoning == "xhigh" and not supports_xhigh(model):
         reasoning = "high"
+
+    tool_choice = options.tool_choice if options else None
 
     return stream_openai_completions(
         model,
         context,
         OpenAICompletionsOptions(
-            api_key=api_key,
-            headers=options.headers if options else None,
-            max_tokens=options.max_tokens if options else None,
-            temperature=options.temperature if options else None,
-            signal=options.signal if options else None,
-            session_id=options.session_id if options else None,
-            on_payload=options.on_payload if options else None,
+            **base.__dict__,
             reasoning_effort=reasoning,
-            tool_choice=options.tool_choice if options else None,
+            tool_choice=tool_choice,
         ),
     )
 

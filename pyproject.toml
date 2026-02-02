@@ -28,4 +28,13 @@ testpaths = ["tests"]
 pi-rpc = "pi_sdk.rpc:main"
 
 [tool.setuptools]
-packages = ["pi_ai", "pi_ai.utils", "pi_agent", "pi_tools", "pi_session", "pi_sdk"]
+packages = [
+  "pi_ai",
+  "pi_ai.auth",
+  "pi_ai.providers",
+  "pi_ai.utils",
+  "pi_agent",
+  "pi_tools",
+  "pi_session",
+  "pi_sdk",
+]

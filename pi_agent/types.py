@@ -41,6 +41,7 @@ class AgentLoopConfig:
     thinking_budgets: Optional[Dict[str, int]] = None
     on_payload: Optional[Callable[[Dict[str, Any]], None]] = None
     signal: Optional[asyncio.Event] = None
+    max_retry_delay_ms: Optional[int] = None
 
 
 @dataclass

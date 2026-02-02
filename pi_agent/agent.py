@@ -76,6 +76,7 @@ class Agent:
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         thinking_budgets: Optional[dict] = None,
+        max_retry_delay_ms: Optional[int] = None,
         session_manager: Optional[SessionManager] = None,
     ) -> None:
         self._state = AgentState(
@@ -106,6 +107,7 @@ class Agent:
         self._max_tokens = max_tokens
         self._temperature = temperature
         self._thinking_budgets = thinking_budgets
+        self._max_retry_delay_ms = max_retry_delay_ms
         self._abort_event: Optional[asyncio.Event] = None
         self._running_task: Optional[asyncio.Task] = None
 
@@ -128,6 +130,14 @@ class Agent:
     @thinking_budgets.setter
     def thinking_budgets(self, value: Optional[dict]) -> None:
         self._thinking_budgets = value
+
+    @property
+    def max_retry_delay_ms(self) -> Optional[int]:
+        return self._max_retry_delay_ms
+
+    @max_retry_delay_ms.setter
+    def max_retry_delay_ms(self, value: Optional[int]) -> None:
+        self._max_retry_delay_ms = value
 
     def subscribe(self, fn: Callable[[AgentEvent], None]) -> Callable[[], None]:
         self._listeners.add(fn)
@@ -267,6 +277,7 @@ class Agent:
             temperature=self._temperature,
             thinking_budgets=self._thinking_budgets,
             signal=self._abort_event,
+            max_retry_delay_ms=self._max_retry_delay_ms,
         )
 
         if prompts is None:

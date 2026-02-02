@@ -180,6 +180,7 @@ class StreamOptions:
     session_id: Optional[str] = None
     on_payload: Optional[Callable[[Dict[str, Any]], None]] = None
     cache_retention: Optional[CacheRetention] = None
+    max_retry_delay_ms: Optional[int] = None
 
 
 @dataclass

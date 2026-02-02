@@ -39,7 +39,7 @@ def create_agent(
     resolved_tools = list(tools) if tools is not None else create_default_tools(resolved_cwd)
     session_manager = SessionManager(session_path) if session_path else None
 
-    return Agent(
+    agent = Agent(
         model=resolved_model,
         system_prompt=system_prompt,
         tools=resolved_tools,
@@ -47,3 +47,6 @@ def create_agent(
         api_key=api_key,
         session_manager=session_manager,
     )
+    if session_manager and Path(session_manager.path).exists():
+        agent.replace_messages(session_manager.load_messages())
+    return agent

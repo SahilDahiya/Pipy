@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from pi_ai.types import Message
+from pi_ai.types import AssistantMessage, Message, ToolResultMessage, UserMessage
 
 
 @dataclass
@@ -51,3 +51,18 @@ class SessionManager:
                 data = json.loads(line)
                 entries.append(SessionEntry(type=data.get("type", "message"), payload=data.get("payload", {})))
         return entries
+
+    def load_messages(self) -> List[Message]:
+        messages: List[Message] = []
+        for entry in self.read_entries():
+            if entry.type != "message":
+                continue
+            payload = entry.payload
+            role = payload.get("role")
+            if role == "user":
+                messages.append(UserMessage.model_validate(payload))
+            elif role == "assistant":
+                messages.append(AssistantMessage.model_validate(payload))
+            elif role == "toolResult":
+                messages.append(ToolResultMessage.model_validate(payload))
+        return messages

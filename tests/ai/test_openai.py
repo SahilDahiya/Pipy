@@ -100,3 +100,14 @@ def test_openai_normalizes_pipe_tool_call_ids():
     tool_messages = [msg for msg in params["messages"] if msg.get("role") == "tool"]
     assert tool_messages
     assert "|" not in tool_messages[0]["tool_call_id"]
+
+
+def test_openai_clamps_xhigh_reasoning():
+    model = create_openai_model("gpt-4o-mini", provider="openai", reasoning=True)
+    ctx = Context(messages=[create_user_message("hi")])
+    params = openai_provider._build_params(
+        model,
+        ctx,
+        openai_provider.OpenAICompletionsOptions(reasoning_effort="xhigh"),
+    )
+    assert params.get("reasoning_effort") == "high"

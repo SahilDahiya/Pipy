@@ -379,6 +379,11 @@ def _build_params(
 ) -> Dict[str, Any]:
     compat = _get_compat(model)
     messages = _convert_messages(model, context, compat)
+    reasoning_effort = None
+    if options and options.reasoning_effort:
+        reasoning_effort = options.reasoning_effort
+        if reasoning_effort == "xhigh" and not supports_xhigh(model):
+            reasoning_effort = "high"
 
     params: Dict[str, Any] = {
         "model": model.id,
@@ -410,11 +415,11 @@ def _build_params(
         params["tool_choice"] = options.tool_choice
 
     if compat.thinking_format == "zai" and model.reasoning:
-        params["thinking"] = {"type": "enabled" if options and options.reasoning_effort else "disabled"}
+        params["thinking"] = {"type": "enabled" if reasoning_effort else "disabled"}
     elif compat.thinking_format == "qwen" and model.reasoning:
-        params["enable_thinking"] = bool(options and options.reasoning_effort)
-    elif options and options.reasoning_effort and model.reasoning and compat.supports_reasoning_effort:
-        params["reasoning_effort"] = options.reasoning_effort
+        params["enable_thinking"] = bool(reasoning_effort)
+    elif reasoning_effort and model.reasoning and compat.supports_reasoning_effort:
+        params["reasoning_effort"] = reasoning_effort
 
     if "openrouter.ai" in model.base_url and compat.openrouter_routing:
         params["provider"] = compat.openrouter_routing

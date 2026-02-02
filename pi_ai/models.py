@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple
 from .types import Model, ModelCost, OpenAICompletionsCompat, Usage
 
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 
 _MODEL_REGISTRY: Dict[Tuple[str, str], Model] = {}
 
@@ -28,7 +29,7 @@ def create_openai_model(
     headers: Dict[str, str] | None = None,
     compat: OpenAICompletionsCompat | None = None,
     supports_xhigh: bool = False,
-) -> Model:
+    ) -> Model:
     return Model(
         id=model_id,
         api="openai-completions",
@@ -45,12 +46,44 @@ def create_openai_model(
     )
 
 
+def create_anthropic_model(
+    model_id: str,
+    *,
+    provider: str = "anthropic",
+    base_url: str | None = None,
+    reasoning: bool = True,
+    input_modalities: List[str] | None = None,
+    context_window: int | None = None,
+    max_tokens: int | None = None,
+    cost: ModelCost | None = None,
+    headers: Dict[str, str] | None = None,
+) -> Model:
+    return Model(
+        id=model_id,
+        api="anthropic-messages",
+        provider=provider,
+        base_url=base_url or DEFAULT_ANTHROPIC_BASE_URL,
+        reasoning=reasoning,
+        input=input_modalities or ["text"],
+        context_window=context_window,
+        max_tokens=max_tokens,
+        cost=cost or ModelCost(),
+        headers=headers or {},
+        compat=None,
+        supports_xhigh=False,
+    )
+
+
 def get_model(provider: str, model_id: str) -> Model:
     key = (provider, model_id)
     if key in _MODEL_REGISTRY:
         return _MODEL_REGISTRY[key]
     if provider == "openai":
         model = create_openai_model(model_id)
+        register_model(model)
+        return model
+    if provider == "anthropic":
+        model = create_anthropic_model(model_id)
         register_model(model)
         return model
     raise KeyError(f"Model not found: {provider}/{model_id}. Register it first.")

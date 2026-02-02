@@ -16,6 +16,7 @@ Port the core of pi-mono into Python so developers can `pip install pi-python` a
 1. Verify every change against `/home/dahiy/repos/pi-mono` so behavior stays aligned.
 2. Keep working until the porting goal in this document is reached.
 3. Commit meaningful changes as you go to make review easy.
+4. Before declaring completion, re-check `/home/dahiy/repos/pi-mono` for parity.
 
 ## In scope
 

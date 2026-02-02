@@ -9,7 +9,7 @@ pi-python is a minimal agent engine with a small SDK surface. It exposes a strea
 ## Core layers
 
 - `pi_ai` - Providers, auth, tool calling, token/cost tracking, and unified streaming.
-- `pi_agent` - Agent loop, message queueing, and event emission.
+- `pi_agent` - Agent loop, steering/follow-up message queues, and event emission.
 - `pi_tools` - Four default tools: read, write, edit, bash.
 - `pi_session` - JSONL persistence and session trees.
 - `pi_sdk` - Embedding SDK and RPC mode for non-Python consumers.
@@ -19,7 +19,8 @@ pi-python is a minimal agent engine with a small SDK surface. It exposes a strea
 1. App sends a user message to the agent.
 2. Agent loop calls the provider stream and emits events.
 3. Tool calls are executed and fed back into the loop.
-4. Events are streamed to the consumer and persisted in the session.
+4. Steering messages can interrupt tool runs; follow-up messages continue after the loop would stop.
+5. Events are streamed to the consumer and persisted in the session.
 
 ## Boundaries and invariants
 

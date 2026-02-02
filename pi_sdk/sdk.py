@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Awaitable, Callable, Optional, Sequence
 
 from pi_agent.agent import Agent
 from pi_ai.auth import AuthStorage
@@ -36,6 +36,10 @@ def create_agent(
     api_key: Optional[str] = None,
     auth_path: Optional[str] = None,
     auth_storage: Optional[AuthStorage] = None,
+    convert_to_llm: Optional[Callable[[list], list | Awaitable[list]]] = None,
+    transform_context: Optional[Callable[[list, Optional[object]], list | Awaitable[list]]] = None,
+    get_steering_messages: Optional[Callable[[], Sequence | Awaitable[Sequence]]] = None,
+    get_follow_up_messages: Optional[Callable[[], Sequence | Awaitable[Sequence]]] = None,
 ) -> Agent:
     resolved_cwd = cwd or str(Path.cwd())
     resolved_model = model or get_model(provider, model_id)
@@ -58,6 +62,10 @@ def create_agent(
         api_key=api_key,
         get_api_key=resolve_api_key,
         session_manager=session_manager,
+        convert_to_llm=convert_to_llm,
+        transform_context=transform_context,
+        get_steering_messages=get_steering_messages,
+        get_follow_up_messages=get_follow_up_messages,
     )
     if session_manager and Path(session_manager.path).exists():
         agent.replace_messages(session_manager.load_messages())

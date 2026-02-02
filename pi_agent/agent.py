@@ -54,8 +54,19 @@ class Agent:
         system_prompt: str = "",
         tools: Optional[Sequence[ToolDefinition]] = None,
         thinking_level: Optional[str] = None,
-        convert_to_llm: Optional[Callable[[List[AgentMessage]], List[Message]]] = None,
-        stream_fn: Optional[Callable[[Model, Any, Any], Any]] = None,
+        convert_to_llm: Optional[
+            Callable[[List[AgentMessage]], List[Message] | Awaitable[List[Message]]]
+        ] = None,
+        transform_context: Optional[
+            Callable[[List[AgentMessage], Optional[asyncio.Event]], List[AgentMessage] | Awaitable[List[AgentMessage]]]
+        ] = None,
+        get_steering_messages: Optional[
+            Callable[[], Sequence[AgentMessage] | Awaitable[Sequence[AgentMessage]]]
+        ] = None,
+        get_follow_up_messages: Optional[
+            Callable[[], Sequence[AgentMessage] | Awaitable[Sequence[AgentMessage]]]
+        ] = None,
+        stream_fn: Optional[Callable[[Model, Any, Any], Any | Awaitable[Any]]] = None,
         session_id: Optional[str] = None,
         api_key: Optional[str] = None,
         get_api_key: Optional[Callable[[str], Awaitable[Optional[str]] | Optional[str]]] = None,
@@ -77,6 +88,9 @@ class Agent:
         )
         self._listeners: set[Callable[[AgentEvent], None]] = set()
         self._convert_to_llm = convert_to_llm or _default_convert_to_llm
+        self._transform_context = transform_context
+        self._get_steering_messages = get_steering_messages
+        self._get_follow_up_messages = get_follow_up_messages
         self._stream_fn = stream_fn or stream_simple
         self._session_id = session_id
         self._session_manager = session_manager
@@ -177,8 +191,11 @@ class Agent:
         config = AgentLoopConfig(
             model=self._state.model,
             convert_to_llm=self._convert_to_llm,
+            transform_context=self._transform_context,
             stream_fn=self._stream_fn,
             get_api_key=self._get_api_key,
+            get_steering_messages=self._get_steering_messages,
+            get_follow_up_messages=self._get_follow_up_messages,
             reasoning=reasoning,
             session_id=self._session_id,
             api_key=self._api_key,

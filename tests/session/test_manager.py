@@ -24,3 +24,15 @@ def test_load_messages(tmp_path):
 
     loaded = manager.load_messages()
     assert [msg.content for msg in loaded] == ["hello", "world"]
+
+
+def test_get_session_name(tmp_path):
+    path = tmp_path / "session.jsonl"
+    manager = SessionManager.open(str(path))
+    assert manager.get_session_name() is None
+
+    manager.append_session_info("  My Session  ")
+    assert manager.get_session_name() == "My Session"
+
+    manager.append_session_info("   ")
+    assert manager.get_session_name() == "My Session"

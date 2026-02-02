@@ -89,3 +89,47 @@ def test_branch_invalid_raises():
     session = SessionManager.in_memory()
     with pytest.raises(ValueError):
         session.branch("missing")
+
+
+def test_branch_with_summary_inserts_entry():
+    session = SessionManager.in_memory()
+    id1 = session.append_message(user_msg("1"))
+    session.append_message(assistant_msg("2"))
+    session.append_message(user_msg("3"))
+
+    summary_id = session.branch_with_summary(id1, "Summary of abandoned work")
+    assert session.get_leaf_id() == summary_id
+    summary_entry = next(e for e in session.get_entries() if e.type == "branch_summary")
+    assert summary_entry.parentId == id1
+    assert summary_entry.summary == "Summary of abandoned work"
+
+
+def test_branch_with_summary_invalid_raises():
+    session = SessionManager.in_memory()
+    session.append_message(user_msg("hello"))
+    with pytest.raises(ValueError):
+        session.branch_with_summary("missing", "summary")
+
+
+def test_get_leaf_entry():
+    session = SessionManager.in_memory()
+    assert session.get_leaf_entry() is None
+    id1 = session.append_message(user_msg("first"))
+    leaf = session.get_leaf_entry()
+    assert leaf is not None
+    assert leaf.id == id1
+
+
+def test_get_entry_missing_returns_none():
+    session = SessionManager.in_memory()
+    assert session.get_entry("missing") is None
+
+
+def test_get_children_returns_direct_children():
+    session = SessionManager.in_memory()
+    id1 = session.append_message(user_msg("root"))
+    id2 = session.append_message(assistant_msg("child"))
+    session.append_message(user_msg("grandchild"))
+
+    children = session.get_children(id1)
+    assert [entry.id for entry in children] == [id2]

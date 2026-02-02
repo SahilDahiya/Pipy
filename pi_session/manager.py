@@ -852,15 +852,28 @@ class SessionManager:
         return [e for e in self._file_entries if not isinstance(e, SessionHeader)]
 
     def get_entry(self, entry_id: str) -> SessionEntryType:
-        if entry_id not in self._by_id:
-            raise KeyError(f"Entry {entry_id} not found")
-        return self._by_id[entry_id]
+        return self._by_id.get(entry_id)
 
     def get_label(self, entry_id: str) -> Optional[str]:
         return self._labels_by_id.get(entry_id)
 
     def get_leaf_id(self) -> Optional[str]:
         return self._leaf_id
+
+    def get_leaf_entry(self) -> Optional[SessionEntryType]:
+        if not self._leaf_id:
+            return None
+        return self._by_id.get(self._leaf_id)
+
+    def get_children(self, parent_id: str) -> List[SessionEntryType]:
+        return [entry for entry in self._by_id.values() if entry.parentId == parent_id]
+
+    def get_session_name(self) -> Optional[str]:
+        entries = self.get_entries()
+        for entry in reversed(entries):
+            if isinstance(entry, SessionInfoEntry) and entry.name:
+                return entry.name
+        return None
 
     def append_message(self, message: Message | Dict[str, Any]) -> str:
         entry = SessionMessageEntry(
@@ -983,12 +996,15 @@ class SessionManager:
         return entry.id
 
     def append_session_info(self, name: Optional[str]) -> str:
+        trimmed = name.strip() if isinstance(name, str) else None
+        if trimmed == "":
+            trimmed = None
         entry = SessionInfoEntry(
             type="session_info",
             id=_generate_id(self._by_id.keys()),
             parentId=self._leaf_id,
             timestamp=_now_iso(),
-            name=name,
+            name=trimmed,
         )
         self._append_entry(entry)
         return entry.id
@@ -1042,6 +1058,29 @@ class SessionManager:
 
     def reset_leaf(self) -> None:
         self._leaf_id = None
+
+    def branch_with_summary(
+        self,
+        branch_from_id: Optional[str],
+        summary: str,
+        details: Optional[Dict[str, Any]] = None,
+        from_hook: Optional[bool] = None,
+    ) -> str:
+        if branch_from_id is not None and branch_from_id not in self._by_id:
+            raise ValueError(f"Entry {branch_from_id} not found")
+        self._leaf_id = branch_from_id
+        entry = BranchSummaryEntry(
+            type="branch_summary",
+            id=_generate_id(self._by_id.keys()),
+            parentId=branch_from_id,
+            timestamp=_now_iso(),
+            fromId=branch_from_id or "root",
+            summary=summary,
+            details=details,
+            fromHook=from_hook,
+        )
+        self._append_entry(entry)
+        return entry.id
 
     def create_branched_session(self, leaf_id: str) -> Optional[str]:
         path = self.get_branch(leaf_id)

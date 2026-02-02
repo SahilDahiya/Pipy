@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -62,11 +63,12 @@ class AuthStorage:
         self._data = data
 
     def _save(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         data: Dict[str, dict] = {}
         for provider, cred in self._data.items():
             data[provider] = asdict(cred)
         self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.chmod(self._path, 0o600)
 
     def set_api_key(self, provider: str, key: str) -> None:
         self._data[provider] = ApiKeyCredential(type="api_key", key=key)

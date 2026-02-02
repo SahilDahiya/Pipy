@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, List, Optional, Sequence
+from typing import Any, Awaitable, Callable, List, Literal, Optional, Sequence
 
 from pi_ai.types import ImageContent, Message, Model, TextContent, UserMessage
 from pi_ai.providers import stream_simple
@@ -54,6 +54,8 @@ class Agent:
         system_prompt: str = "",
         tools: Optional[Sequence[ToolDefinition]] = None,
         thinking_level: Optional[str] = None,
+        steering_mode: Literal["all", "one-at-a-time"] = "one-at-a-time",
+        follow_up_mode: Literal["all", "one-at-a-time"] = "one-at-a-time",
         convert_to_llm: Optional[
             Callable[[List[AgentMessage]], List[Message] | Awaitable[List[Message]]]
         ] = None,
@@ -95,6 +97,10 @@ class Agent:
         self._session_id = session_id
         self._session_manager = session_manager
         self._get_api_key = get_api_key
+        self._steering_mode = steering_mode
+        self._follow_up_mode = follow_up_mode
+        self._steering_queue: List[AgentMessage] = []
+        self._follow_up_queue: List[AgentMessage] = []
         self._api_key = api_key
         self._headers = headers
         self._max_tokens = max_tokens
@@ -121,6 +127,21 @@ class Agent:
     def set_model(self, model: Model) -> None:
         self._state.model = model
 
+    def set_thinking_level(self, level: Optional[str]) -> None:
+        self._state.thinking_level = level
+
+    def set_steering_mode(self, mode: Literal["all", "one-at-a-time"]) -> None:
+        self._steering_mode = mode
+
+    def get_steering_mode(self) -> Literal["all", "one-at-a-time"]:
+        return self._steering_mode
+
+    def set_follow_up_mode(self, mode: Literal["all", "one-at-a-time"]) -> None:
+        self._follow_up_mode = mode
+
+    def get_follow_up_mode(self) -> Literal["all", "one-at-a-time"]:
+        return self._follow_up_mode
+
     def set_tools(self, tools: Sequence[ToolDefinition]) -> None:
         self._state.tools = list(tools)
 
@@ -132,6 +153,30 @@ class Agent:
 
     def clear_messages(self) -> None:
         self._state.messages = []
+
+    def steer(self, message: AgentMessage) -> None:
+        self._steering_queue.append(message)
+
+    def follow_up(self, message: AgentMessage) -> None:
+        self._follow_up_queue.append(message)
+
+    def clear_steering_queue(self) -> None:
+        self._steering_queue = []
+
+    def clear_follow_up_queue(self) -> None:
+        self._follow_up_queue = []
+
+    def clear_all_queues(self) -> None:
+        self._steering_queue = []
+        self._follow_up_queue = []
+
+    def reset(self) -> None:
+        self._state.messages = []
+        self._state.is_streaming = False
+        self._state.stream_message = None
+        self._state.pending_tool_calls = set()
+        self._state.error = None
+        self.clear_all_queues()
 
     def abort(self) -> None:
         if self._abort_event:
@@ -147,7 +192,9 @@ class Agent:
         images: Optional[List[ImageContent]] = None,
     ) -> AgentEventStream:
         if self._state.is_streaming:
-            raise RuntimeError("Agent is already processing a prompt.")
+            raise RuntimeError(
+                "Agent is already processing. Use steer() or follow_up() to queue messages."
+            )
 
         prompts: List[AgentMessage]
         if isinstance(input_value, list):
@@ -194,8 +241,8 @@ class Agent:
             transform_context=self._transform_context,
             stream_fn=self._stream_fn,
             get_api_key=self._get_api_key,
-            get_steering_messages=self._get_steering_messages,
-            get_follow_up_messages=self._get_follow_up_messages,
+            get_steering_messages=self._build_steering_reader(),
+            get_follow_up_messages=self._build_follow_up_reader(),
             reasoning=reasoning,
             session_id=self._session_id,
             api_key=self._api_key,
@@ -224,6 +271,36 @@ class Agent:
 
         self._running_task = asyncio.create_task(forward())
         return output_stream
+
+    def _build_steering_reader(self):
+        if self._get_steering_messages:
+            return self._get_steering_messages
+
+        async def _reader() -> List[AgentMessage]:
+            if self._steering_mode == "one-at-a-time":
+                if self._steering_queue:
+                    return [self._steering_queue.pop(0)]
+                return []
+            messages = list(self._steering_queue)
+            self._steering_queue = []
+            return messages
+
+        return _reader
+
+    def _build_follow_up_reader(self):
+        if self._get_follow_up_messages:
+            return self._get_follow_up_messages
+
+        async def _reader() -> List[AgentMessage]:
+            if self._follow_up_mode == "one-at-a-time":
+                if self._follow_up_queue:
+                    return [self._follow_up_queue.pop(0)]
+                return []
+            messages = list(self._follow_up_queue)
+            self._follow_up_queue = []
+            return messages
+
+        return _reader
 
     def _handle_event(self, event: AgentEvent) -> None:
         event_type = event.get("type")

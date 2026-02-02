@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Awaitable, Callable, Optional, Sequence
+from typing import Awaitable, Callable, Literal, Optional, Sequence
 
 from pi_agent.agent import Agent
 from pi_ai.auth import AuthStorage
@@ -29,6 +29,9 @@ def create_agent(
     provider: str = "openai",
     model_id: str = "gpt-4o-mini",
     system_prompt: str = "",
+    thinking_level: Optional[str] = None,
+    steering_mode: Literal["all", "one-at-a-time"] = "one-at-a-time",
+    follow_up_mode: Literal["all", "one-at-a-time"] = "one-at-a-time",
     cwd: Optional[str] = None,
     tools: Optional[Sequence[ToolDefinition]] = None,
     session_path: Optional[str] = None,
@@ -58,6 +61,9 @@ def create_agent(
         model=resolved_model,
         system_prompt=system_prompt,
         tools=resolved_tools,
+        thinking_level=thinking_level,
+        steering_mode=steering_mode,
+        follow_up_mode=follow_up_mode,
         session_id=session_id,
         api_key=api_key,
         get_api_key=resolve_api_key,

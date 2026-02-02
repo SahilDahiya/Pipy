@@ -13,6 +13,7 @@ read_when: you need the runtime flow, event sequence, or steering/follow-up beha
 
 - **Steering messages** are checked before the next assistant response and after each tool execution. If present, remaining tool calls are skipped with an error tool result, and the steering message is injected immediately.
 - **Follow-up messages** are checked after the agent would otherwise stop. If present, they start another turn.
+- The `Agent` can deliver messages one-at-a-time or in batches via steering/follow-up modes.
 
 ## Context hooks
 

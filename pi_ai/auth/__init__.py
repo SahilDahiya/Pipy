@@ -35,6 +35,7 @@ __all__ = [
 ]
 
 _ENV_KEY_BY_PROVIDER: Dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "openai-codex": "OPENAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",

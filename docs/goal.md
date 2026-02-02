@@ -6,6 +6,11 @@ read_when: you need the authoritative scope and intent for pi-python
 
 Port the core of pi-mono into Python so developers can `pip install pi-python` and embed a Pi-style agent engine in any Python app. This is an engine (runtime + SDK), not an application or UI.
 
+## Source of truth
+
+- Continuously refer back to `/home/dahiy/repos/pi-mono` while porting.
+- When in doubt, re-check the corresponding pi-mono module before implementing or adjusting behavior.
+
 ## In scope
 
 - `pi_ai`: LLM abstraction with OpenAI Completions + Anthropic Messages

@@ -9,7 +9,7 @@ from pi_agent.agent import Agent
 from pi_ai.auth import AuthStorage
 from pi_ai.models import get_model
 from pi_ai.types import Model
-from pi_session.manager import SessionManager
+from pi_session.manager import SessionManager, get_agent_dir
 from pi_tools import create_bash_tool, create_edit_tool, create_read_tool, create_write_tool
 from pi_tools.base import ToolDefinition
 
@@ -53,7 +53,9 @@ def create_agent(
     resolved_model = model or get_model(provider, model_id)
     resolved_tools = list(tools) if tools is not None else create_default_tools(resolved_cwd)
     session_manager = SessionManager.open(session_path) if session_path else None
-    resolved_auth = auth_storage or (AuthStorage(auth_path) if auth_path else None)
+    resolved_auth = auth_storage or AuthStorage(
+        auth_path or str(Path(get_agent_dir()) / "auth.json")
+    )
 
     async def resolve_api_key(provider_name: str) -> Optional[str]:
         if api_key:

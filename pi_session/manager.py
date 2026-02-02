@@ -39,8 +39,12 @@ def _get_agent_dir() -> str:
     return str(Path.home() / ".pi" / "agent")
 
 
+def get_agent_dir() -> str:
+    return _get_agent_dir()
+
+
 def get_sessions_dir() -> str:
-    return str(Path(_get_agent_dir()) / "sessions")
+    return str(Path(get_agent_dir()) / "sessions")
 
 
 def get_default_session_dir(cwd: str) -> str:

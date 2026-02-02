@@ -40,6 +40,23 @@ class SessionTree:
     def root_id(self) -> Optional[str]:
         return self._root_id
 
+    def children(self, node_id: str) -> List[str]:
+        return list(self.get_node(node_id).children)
+
+    def path_to_root(self, node_id: str) -> List[str]:
+        path: List[str] = []
+        current = self.get_node(node_id)
+        while current:
+            path.append(current.node_id)
+            if current.parent_id is None:
+                break
+            current = self.get_node(current.parent_id)
+        return path
+
+    def ancestors(self, node_id: str) -> List[str]:
+        path = self.path_to_root(node_id)
+        return path[1:]
+
     def to_dict(self) -> Dict[str, dict]:
         return {
             node_id: {

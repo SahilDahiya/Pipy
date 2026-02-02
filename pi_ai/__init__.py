@@ -1,6 +1,7 @@
 """LLM layer for pi-python."""
 
 from .models import create_openai_model, get_model, list_models, register_model
+from .providers import stream_simple
 
 __all__ = [
     "auth",
@@ -14,4 +15,5 @@ __all__ = [
     "get_model",
     "list_models",
     "register_model",
+    "stream_simple",
 ]

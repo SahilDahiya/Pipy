@@ -110,3 +110,13 @@ async def test_session_id_forwarded():
     async for _ in stream:
         pass
     assert received["session_id"] == "session-def"
+
+
+def test_continue_session_requires_valid_last_message():
+    agent = Agent(model=_model())
+    with pytest.raises(RuntimeError, match="No messages to continue"):
+        agent.continue_session()
+
+    agent.append_message(create_assistant_message([TextContent(text="hi")]))
+    with pytest.raises(RuntimeError, match="Cannot continue from message role: assistant"):
+        agent.continue_session()

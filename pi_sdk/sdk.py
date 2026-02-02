@@ -47,7 +47,7 @@ def create_agent(
     resolved_cwd = cwd or str(Path.cwd())
     resolved_model = model or get_model(provider, model_id)
     resolved_tools = list(tools) if tools is not None else create_default_tools(resolved_cwd)
-    session_manager = SessionManager(session_path) if session_path else None
+    session_manager = SessionManager.open(session_path) if session_path else None
     resolved_auth = auth_storage or (AuthStorage(auth_path) if auth_path else None)
 
     async def resolve_api_key(provider_name: str) -> Optional[str]:

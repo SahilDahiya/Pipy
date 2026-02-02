@@ -1,9 +1,41 @@
 """Session persistence utilities for pi-python."""
 
-from .manager import SessionManager
-from .tree import SessionTree
+from .manager import (
+    BranchSummaryEntry,
+    CompactionEntry,
+    CustomEntry,
+    CustomMessageEntry,
+    LabelEntry,
+    ModelChangeEntry,
+    SessionContext,
+    SessionHeader,
+    SessionManager,
+    SessionMessageEntry,
+    SessionTreeNode,
+    SessionInfoEntry,
+    ThinkingLevelChangeEntry,
+    build_session_context,
+    find_most_recent_session,
+    load_entries_from_file,
+    migrate_session_entries,
+)
 
 __all__ = [
+    "BranchSummaryEntry",
+    "CompactionEntry",
+    "CustomEntry",
+    "CustomMessageEntry",
+    "LabelEntry",
+    "ModelChangeEntry",
+    "SessionContext",
+    "SessionHeader",
+    "SessionInfoEntry",
     "SessionManager",
-    "SessionTree",
+    "SessionMessageEntry",
+    "SessionTreeNode",
+    "ThinkingLevelChangeEntry",
+    "build_session_context",
+    "find_most_recent_session",
+    "load_entries_from_file",
+    "migrate_session_entries",
 ]

@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from pi_ai.types import AssistantMessage, Message, ToolResultMessage, UserMessage
@@ -26,6 +26,197 @@ def _generate_id(existing: Iterable[str]) -> str:
         if candidate not in existing_set:
             return candidate
     return uuid4().hex
+
+
+def _get_agent_dir() -> str:
+    env_dir = os.getenv("PI_CODING_AGENT_DIR")
+    if env_dir:
+        if env_dir == "~":
+            return str(Path.home())
+        if env_dir.startswith("~/"):
+            return str(Path.home() / env_dir[2:])
+        return env_dir
+    return str(Path.home() / ".pi" / "agent")
+
+
+def get_sessions_dir() -> str:
+    return str(Path(_get_agent_dir()) / "sessions")
+
+
+def get_default_session_dir(cwd: str) -> str:
+    safe_path = f"--{cwd.lstrip('/\\\\').replace('/', '-').replace('\\\\', '-').replace(':', '-')}--"
+    session_dir = Path(get_sessions_dir()) / safe_path
+    session_dir.mkdir(parents=True, exist_ok=True)
+    return str(session_dir)
+
+
+def _parse_iso_timestamp(value: str) -> Optional[datetime]:
+    try:
+        if value.endswith("Z"):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def _is_message_with_content(message: Any) -> bool:
+    return isinstance(message, dict) and isinstance(message.get("role"), str) and "content" in message
+
+
+def _extract_text_content(message: Dict[str, Any]) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: List[str] = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return " ".join(parts)
+    return ""
+
+
+def _get_last_activity_time(entries: List[Dict[str, Any]]) -> Optional[int]:
+    last_activity: Optional[int] = None
+    for entry in entries:
+        if entry.get("type") != "message":
+            continue
+        message = entry.get("message")
+        if not _is_message_with_content(message):
+            continue
+        role = message.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        msg_timestamp = message.get("timestamp")
+        if isinstance(msg_timestamp, int):
+            last_activity = max(last_activity or 0, msg_timestamp)
+            continue
+        entry_timestamp = entry.get("timestamp")
+        if isinstance(entry_timestamp, str):
+            parsed = _parse_iso_timestamp(entry_timestamp)
+            if parsed:
+                last_activity = max(last_activity or 0, int(parsed.timestamp() * 1000))
+    return last_activity
+
+
+def _get_session_modified_date(
+    entries: List[Dict[str, Any]],
+    header: Dict[str, Any],
+    stats_mtime: datetime,
+) -> datetime:
+    last_activity_time = _get_last_activity_time(entries)
+    if isinstance(last_activity_time, int) and last_activity_time > 0:
+        return datetime.fromtimestamp(last_activity_time / 1000, tz=timezone.utc)
+    header_time = header.get("timestamp")
+    if isinstance(header_time, str):
+        parsed = _parse_iso_timestamp(header_time)
+        if parsed:
+            return parsed
+    return stats_mtime
+
+
+def build_session_info(file_path: str) -> Optional[SessionInfo]:
+    try:
+        content = Path(file_path).read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+    entries: List[Dict[str, Any]] = []
+    for line in content.strip().splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(entry, dict):
+            entries.append(entry)
+
+    if not entries:
+        return None
+    header = entries[0]
+    if header.get("type") != "session":
+        return None
+
+    stats = Path(file_path).stat()
+    stats_mtime = datetime.fromtimestamp(stats.st_mtime, tz=timezone.utc)
+
+    message_count = 0
+    first_message = ""
+    all_messages: List[str] = []
+    name: Optional[str] = None
+
+    for entry in entries:
+        if entry.get("type") == "session_info":
+            entry_name = entry.get("name")
+            if isinstance(entry_name, str) and entry_name.strip():
+                name = entry_name.strip()
+
+        if entry.get("type") != "message":
+            continue
+        message_count += 1
+        message = entry.get("message")
+        if not _is_message_with_content(message):
+            continue
+        role = message.get("role")
+        if role not in {"user", "assistant"}:
+            continue
+        text_content = _extract_text_content(message)
+        if not text_content:
+            continue
+        all_messages.append(text_content)
+        if not first_message and role == "user":
+            first_message = text_content
+
+    cwd = header.get("cwd") if isinstance(header.get("cwd"), str) else ""
+    parent_session_path = header.get("parentSession")
+    header_time = header.get("timestamp")
+    created = _parse_iso_timestamp(header_time) if isinstance(header_time, str) else None
+    if created is None:
+        created = stats_mtime
+
+    modified = _get_session_modified_date(entries, header, stats_mtime)
+
+    return SessionInfo(
+        path=file_path,
+        id=str(header.get("id", "")),
+        cwd=cwd,
+        name=name,
+        parent_session_path=parent_session_path,
+        created=created,
+        modified=modified,
+        message_count=message_count,
+        first_message=first_message or "(no messages)",
+        all_messages_text=" ".join(all_messages),
+    )
+
+
+def list_sessions_from_dir(
+    dir_path: str,
+    on_progress: Optional[SessionListProgress] = None,
+    progress_offset: int = 0,
+    progress_total: Optional[int] = None,
+) -> List[SessionInfo]:
+    sessions: List[SessionInfo] = []
+    directory = Path(dir_path)
+    if not directory.exists():
+        return sessions
+    try:
+        files = [p for p in directory.iterdir() if p.suffix == ".jsonl"]
+        total = progress_total if progress_total is not None else len(files)
+        loaded = 0
+        for file_path in files:
+            info = build_session_info(str(file_path))
+            loaded += 1
+            if on_progress:
+                on_progress(progress_offset + loaded, total)
+            if info:
+                sessions.append(info)
+    except Exception:
+        return []
+    return sessions
 
 
 @dataclass
@@ -189,6 +380,23 @@ class SessionInfoEntry(SessionEntry):
         if self.name is not None:
             data["name"] = self.name
         return data
+
+
+@dataclass
+class SessionInfo:
+    path: str
+    id: str
+    cwd: str
+    name: Optional[str]
+    parent_session_path: Optional[str]
+    created: datetime
+    modified: datetime
+    message_count: int
+    first_message: str
+    all_messages_text: str
+
+
+SessionListProgress = Callable[[int, int], None]
 
 
 SessionEntryType = (
@@ -465,7 +673,8 @@ class SessionManager:
 
     @classmethod
     def create(cls, cwd: str, session_dir: Optional[str] = None) -> "SessionManager":
-        return cls(cwd, session_dir or "", None, True)
+        dir_path = session_dir or get_default_session_dir(cwd)
+        return cls(cwd, dir_path, None, True)
 
     @classmethod
     def open(cls, path: str, session_dir: Optional[str] = None) -> "SessionManager":
@@ -476,11 +685,52 @@ class SessionManager:
 
     @classmethod
     def continue_recent(cls, cwd: str, session_dir: Optional[str] = None) -> "SessionManager":
-        dir_path = session_dir or ""
+        dir_path = session_dir or get_default_session_dir(cwd)
         most_recent = find_most_recent_session(dir_path)
         if most_recent:
             return cls(cwd, dir_path, most_recent, True)
         return cls(cwd, dir_path, None, True)
+
+    @staticmethod
+    def list(
+        cwd: str,
+        session_dir: Optional[str] = None,
+        on_progress: Optional[SessionListProgress] = None,
+    ) -> List[SessionInfo]:
+        dir_path = session_dir or get_default_session_dir(cwd)
+        sessions = list_sessions_from_dir(dir_path, on_progress)
+        sessions.sort(key=lambda s: s.modified, reverse=True)
+        return sessions
+
+    @staticmethod
+    def list_all(on_progress: Optional[SessionListProgress] = None) -> List[SessionInfo]:
+        sessions_dir = Path(get_sessions_dir())
+        if not sessions_dir.exists():
+            return []
+        try:
+            dirs = [entry for entry in sessions_dir.iterdir() if entry.is_dir()]
+        except Exception:
+            return []
+
+        all_files: List[Path] = []
+        for dir_entry in dirs:
+            try:
+                all_files.extend([p for p in dir_entry.iterdir() if p.suffix == ".jsonl"])
+            except Exception:
+                continue
+
+        total_files = len(all_files)
+        loaded = 0
+        sessions: List[SessionInfo] = []
+        for file_path in all_files:
+            info = build_session_info(str(file_path))
+            loaded += 1
+            if on_progress:
+                on_progress(loaded, total_files)
+            if info:
+                sessions.append(info)
+        sessions.sort(key=lambda s: s.modified, reverse=True)
+        return sessions
 
     @classmethod
     def in_memory(cls, cwd: Optional[str] = None) -> "SessionManager":

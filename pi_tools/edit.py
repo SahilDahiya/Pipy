@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Awaitable, Callable, Dict, Optional
 
@@ -54,10 +55,7 @@ async def _default_write_file(path: str, content: str) -> None:
 
 
 async def _default_access(path: str) -> None:
-    resolved = Path(path)
-    if not resolved.exists():
-        raise FileNotFoundError(path)
-    if not resolved.is_file():
+    if not os.access(path, os.R_OK | os.W_OK):
         raise FileNotFoundError(path)
 
 

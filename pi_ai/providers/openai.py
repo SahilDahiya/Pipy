@@ -459,7 +459,9 @@ def _convert_messages(
 
     transformed_messages = transform_messages(context.messages, model, normalize_tool_call_id)
 
-    for msg in transformed_messages:
+    i = 0
+    while i < len(transformed_messages):
+        msg = transformed_messages[i]
         if compat.requires_assistant_after_tool_result and last_role == "toolResult" and msg.role == "user":
             params.append({"role": "assistant", "content": "I have processed the tool results."})
         if msg.role == "user":
@@ -480,6 +482,7 @@ def _convert_messages(
                 if "image" not in model.input:
                     content = [c for c in content if c.get("type") != "image_url"]
                 if not content:
+                    i += 1
                     continue
                 params.append({"role": "user", "content": content})
         elif msg.role == "assistant":
@@ -529,6 +532,17 @@ def _convert_messages(
                     }
                     for tc in tool_calls
                 ]
+                reasoning_details: List[Dict[str, Any]] = []
+                for tc in tool_calls:
+                    if tc.thought_signature:
+                        try:
+                            parsed = json.loads(tc.thought_signature)
+                        except Exception:
+                            parsed = None
+                        if parsed:
+                            reasoning_details.append(parsed)
+                if reasoning_details:
+                    assistant_msg["reasoning_details"] = reasoning_details
 
             content = assistant_msg.get("content")
             has_content = content is not None and (
@@ -536,39 +550,46 @@ def _convert_messages(
                 or (isinstance(content, list) and len(content) > 0)
             )
             if not has_content and not assistant_msg.get("tool_calls"):
+                i += 1
                 continue
 
             params.append(assistant_msg)
         elif msg.role == "toolResult":
             image_blocks: List[Dict[str, Any]] = []
+            j = i
 
-            text_result = "".join(
-                block.text for block in msg.content if block.type == "text"
-            )
-            text_result = sanitize_surrogates(text_result)
-            has_images = any(block.type == "image" for block in msg.content)
-            has_text = len(text_result) > 0
+            while j < len(transformed_messages) and transformed_messages[j].role == "toolResult":
+                tool_msg_entry = transformed_messages[j]
+                if tool_msg_entry.role != "toolResult":
+                    break
+                text_result = "\n".join(
+                    block.text for block in tool_msg_entry.content if block.type == "text"
+                )
+                text_result = sanitize_surrogates(text_result)
+                has_images = any(block.type == "image" for block in tool_msg_entry.content)
+                has_text = len(text_result) > 0
 
-            tool_msg: Dict[str, Any] = {
-                "role": "tool",
-                "content": text_result if has_text else "(see attached image)",
-                "tool_call_id": normalize_tool_call_id(msg.tool_call_id),
-            }
-            if compat.requires_tool_result_name and msg.tool_name:
-                tool_msg["name"] = msg.tool_name
-            params.append(tool_msg)
+                tool_msg: Dict[str, Any] = {
+                    "role": "tool",
+                    "content": text_result if has_text else "(see attached image)",
+                    "tool_call_id": normalize_tool_call_id(tool_msg_entry.tool_call_id),
+                }
+                if compat.requires_tool_result_name and tool_msg_entry.tool_name:
+                    tool_msg["name"] = tool_msg_entry.tool_name
+                params.append(tool_msg)
 
-            if has_images and "image" in model.input:
-                for block in msg.content:
-                    if block.type == "image":
-                        image_blocks.append(
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{block.mime_type};base64,{block.data}",
-                                },
-                            }
-                        )
+                if has_images and "image" in model.input:
+                    for block in tool_msg_entry.content:
+                        if block.type == "image":
+                            image_blocks.append(
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:{block.mime_type};base64,{block.data}",
+                                    },
+                                }
+                            )
+                j += 1
 
             if image_blocks:
                 if compat.requires_assistant_after_tool_result:
@@ -582,9 +603,11 @@ def _convert_messages(
                 last_role = "user"
             else:
                 last_role = "toolResult"
+            i = j
             continue
 
         last_role = msg.role
+        i += 1
 
     return params
 

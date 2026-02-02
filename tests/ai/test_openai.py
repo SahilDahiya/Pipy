@@ -24,6 +24,45 @@ def test_openai_tool_result_images_create_user_message():
     assert any(msg.get("role") == "user" and isinstance(msg.get("content"), list) for msg in messages)
 
 
+def test_openai_batches_tool_result_images():
+    model = create_openai_model("gpt-4o-mini", provider="openai")
+    assistant = create_assistant_message(
+        [
+            ToolCall(id="tool-1", name="read", arguments={"path": "img-1.png"}),
+            ToolCall(id="tool-2", name="read", arguments={"path": "img-2.png"}),
+        ],
+        stop_reason="toolUse",
+    )
+    tool_result_one = ToolResultMessage(
+        tool_call_id="tool-1",
+        tool_name="read",
+        content=[
+            TextContent(text="Read image file [image/png]"),
+            ImageContent(data="ZmFrZQ==", mime_type="image/png"),
+        ],
+        is_error=False,
+    )
+    tool_result_two = ToolResultMessage(
+        tool_call_id="tool-2",
+        tool_name="read",
+        content=[
+            TextContent(text="Read image file [image/png]"),
+            ImageContent(data="ZmFrZQ==", mime_type="image/png"),
+        ],
+        is_error=False,
+    )
+    ctx = Context(messages=[create_user_message("Read the images"), assistant, tool_result_one, tool_result_two])
+
+    params = openai_provider._build_params(model, ctx, None)
+    roles = [msg.get("role") for msg in params["messages"]]
+    assert roles == ["user", "assistant", "tool", "tool", "user"]
+    image_message = params["messages"][-1]
+    assert image_message.get("role") == "user"
+    content = image_message.get("content")
+    assert isinstance(content, list)
+    image_parts = [part for part in content if part.get("type") == "image_url"]
+    assert len(image_parts) == 2
+
 def test_openai_adds_empty_tools_when_history_present():
     model = create_openai_model("gpt-4o-mini", provider="openai")
     tool_call = ToolCall(id="tool-1", name="echo", arguments={"value": "hi"})

@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -19,7 +20,7 @@ async def test_rpc_to_jsonable_handles_models():
 
 
 @pytest.mark.asyncio
-async def test_rpc_handle_send_emits_events(monkeypatch):
+async def test_rpc_handle_prompt_emits_response_and_events(monkeypatch):
     stream = AssistantMessageEventStream()
 
     async def run_stream():
@@ -31,14 +32,27 @@ async def test_rpc_handle_send_emits_events(monkeypatch):
     asyncio.create_task(run_stream())
 
     class DummyAgent:
-        def send(self, _text):
+        def __init__(self):
+            self.state = SimpleNamespace(
+                is_streaming=False,
+                messages=[],
+                pending_tool_calls=set(),
+                error=None,
+                thinking_level="off",
+                model=None,
+            )
+
+        def send(self, _text, images=None):
             return stream
 
     buffer = io.StringIO()
     monkeypatch.setattr(rpc.sys, "stdout", buffer)
 
-    await rpc._handle_send(DummyAgent(), {"text": "hello"})
+    await rpc._handle_prompt(DummyAgent(), {"message": "hello"})
     output = buffer.getvalue().strip().splitlines()
     assert output
+    response = json.loads(output[0])
+    assert response["type"] == "response"
+    assert response["command"] == "prompt"
     event = json.loads(output[-1])
     assert event["type"] in {"done", "error"}

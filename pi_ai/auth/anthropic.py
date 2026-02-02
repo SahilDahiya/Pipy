@@ -3,25 +3,18 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from typing import Awaitable, Callable
 
 import httpx
 
 from .pkce import generate_pkce
+from .types import OAuthCredentials
 
 CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 AUTHORIZE_URL = "https://claude.ai/oauth/authorize"
 TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"
 REDIRECT_URI = "https://console.anthropic.com/oauth/code/callback"
 SCOPES = "org:create_api_key user:profile user:inference"
-
-
-@dataclass
-class OAuthCredentials:
-    access: str
-    refresh: str
-    expires: int
 
 
 def _build_authorize_url(state: str, challenge: str) -> str:

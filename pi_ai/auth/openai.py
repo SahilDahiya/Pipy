@@ -7,13 +7,13 @@ import base64
 import json
 import secrets
 import time
-from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Awaitable, Callable, Optional
 
 import httpx
 
 from .pkce import generate_pkce
+from .types import OAuthCredentials
 
 CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize"
@@ -33,14 +33,6 @@ SUCCESS_HTML = """<!doctype html>
   <p>Authentication successful. Return to your terminal to continue.</p>
 </body>
 </html>"""
-
-
-@dataclass
-class OAuthCredentials:
-    access: str
-    refresh: str
-    expires: int
-    account_id: Optional[str] = None
 
 
 def _create_state() -> str:

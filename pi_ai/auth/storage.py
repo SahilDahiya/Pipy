@@ -9,14 +9,8 @@ from pathlib import Path
 from typing import Callable, Dict, Optional
 
 from . import get_env_api_key
-
-
-@dataclass
-class OAuthCredentials:
-    access: str
-    refresh: str
-    expires: int
-    account_id: Optional[str] = None
+from .oauth import get_oauth_api_key
+from .types import OAuthCredentials
 
 
 @dataclass
@@ -100,7 +94,7 @@ class AuthStorage:
     def list_providers(self) -> list[str]:
         return list(self._data.keys())
 
-    def get_api_key(
+    async def get_api_key(
         self,
         provider: str,
         refresh_fn: Optional[Callable[[OAuthCredentials], OAuthCredentials]] = None,
@@ -126,6 +120,20 @@ class AuthStorage:
                 )
                 self.set_oauth(provider, new_creds)
                 return new_creds.access
+            oauth_map = {
+                key: OAuthCredentials(
+                    access=value.access,
+                    refresh=value.refresh,
+                    expires=value.expires,
+                    account_id=value.account_id,
+                )
+                for key, value in self._data.items()
+                if isinstance(value, OAuthCredential)
+            }
+            result = await get_oauth_api_key(provider, oauth_map)
+            if result:
+                self.set_oauth(provider, result["new_credentials"])
+                return result["api_key"]
 
         env_key = get_env_api_key(provider)
         if env_key:

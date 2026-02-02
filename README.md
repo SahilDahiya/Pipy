@@ -1,6 +1,6 @@
 # pi-python
 
-pi-python is a Python port of the pi-mono agent engine. It provides the runtime and SDK for embedding Pi-style agents into any Python app (FastAPI, Slack, Telegram, etc). This repo builds the engine, not the UI.
+pi-python is a Python port of the pi-mono agent engine. It provides the runtime and SDK for embedding Pi-style agents into any Python app (FastAPI, Flask etc). This repo builds the engine, not the UI.
 
 ## What this repo is for
 - A minimal agent loop with tool execution and streaming events.
@@ -25,6 +25,24 @@ pi-python is a Python port of the pi-mono agent engine. It provides the runtime 
 - `docs/README.md` - start here.
 - `docs/architecture.md` - system boundaries and event flow.
 - `docs/porting-plan.md` - phases, scope, and source mapping.
+- `docs/goal.md` - project intent and scope.
 
 ## Status
 Early scaffold. See `docs/porting-plan.md` for sequencing.
+
+## Quick start (early)
+```python
+from pi_sdk import create_agent
+from pi_ai import get_model
+
+agent = create_agent(
+    model=get_model("openai", "gpt-4o-mini"),
+    session_path=".pi/session.jsonl",
+)
+
+async def run():
+    stream = agent.send("Read the README and summarize it.")
+    async for event in stream:
+        if event["type"] == "text_delta":
+            print(event["delta"], end="")
+```

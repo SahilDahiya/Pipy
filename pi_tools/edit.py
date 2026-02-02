@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import asyncio
-import difflib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Awaitable, Callable, Dict, Optional
 
 from pi_ai.types import TextContent
 
 from .base import ToolDefinition, ToolResult
+from .edit_diff import (
+    detect_line_ending,
+    fuzzy_find_text,
+    generate_diff_string,
+    normalize_for_fuzzy_match,
+    normalize_to_lf,
+    restore_line_endings,
+    strip_bom,
+)
 from .path_utils import resolve_to_cwd
 
 EDIT_SCHEMA: Dict[str, object] = {
@@ -30,18 +38,44 @@ class EditToolDetails:
     first_changed_line: Optional[int] = None
 
 
-def _first_changed_line(old: str, new: str) -> Optional[int]:
-    old_lines = old.splitlines()
-    new_lines = new.splitlines()
-    for idx, (old_line, new_line) in enumerate(zip(old_lines, new_lines), start=1):
-        if old_line != new_line:
-            return idx
-    if len(old_lines) != len(new_lines):
-        return min(len(old_lines), len(new_lines)) + 1
-    return None
+@dataclass
+class EditOperations:
+    read_file: Callable[[str], Awaitable[bytes]]
+    write_file: Callable[[str, str], Awaitable[None]]
+    access: Callable[[str], Awaitable[None]]
 
 
-def create_edit_tool(cwd: str) -> ToolDefinition:
+async def _default_read_file(path: str) -> bytes:
+    return Path(path).read_bytes()
+
+
+async def _default_write_file(path: str, content: str) -> None:
+    Path(path).write_text(content, encoding="utf-8")
+
+
+async def _default_access(path: str) -> None:
+    resolved = Path(path)
+    if not resolved.exists():
+        raise FileNotFoundError(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(path)
+
+
+DEFAULT_EDIT_OPERATIONS = EditOperations(
+    read_file=_default_read_file,
+    write_file=_default_write_file,
+    access=_default_access,
+)
+
+
+@dataclass
+class EditToolOptions:
+    operations: Optional[EditOperations] = None
+
+
+def create_edit_tool(cwd: str, options: Optional[EditToolOptions] = None) -> ToolDefinition:
+    ops = (options.operations if options else None) or DEFAULT_EDIT_OPERATIONS
+
     async def execute(
         _tool_call_id: str,
         params: Dict[str, object],
@@ -55,36 +89,58 @@ def create_edit_tool(cwd: str) -> ToolDefinition:
         old_text = str(params.get("oldText", ""))
         new_text = str(params.get("newText", ""))
 
-        absolute_path = Path(resolve_to_cwd(path, cwd))
-        if not absolute_path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
+        absolute_path = resolve_to_cwd(path, cwd)
+        try:
+            await ops.access(absolute_path)
+        except Exception as exc:
+            raise FileNotFoundError(f"File not found: {path}") from exc
 
-        content = absolute_path.read_text(encoding="utf-8", errors="replace")
-        if old_text not in content:
+        if signal and signal.is_set():
+            raise RuntimeError("Operation aborted")
+
+        raw_content = (await ops.read_file(absolute_path)).decode("utf-8", errors="replace")
+        if signal and signal.is_set():
+            raise RuntimeError("Operation aborted")
+
+        bom, content = strip_bom(raw_content)
+        original_ending = detect_line_ending(content)
+        normalized_content = normalize_to_lf(content)
+        normalized_old_text = normalize_to_lf(old_text)
+        normalized_new_text = normalize_to_lf(new_text)
+
+        match_result = fuzzy_find_text(normalized_content, normalized_old_text)
+        if not match_result.found:
             raise ValueError(
-                f"Could not find the exact text in {path}. The oldText must match exactly including whitespace."
+                f"Could not find the exact text in {path}. The old text must match exactly including all whitespace and newlines."
             )
-        if content.count(old_text) > 1:
+
+        fuzzy_content = normalize_for_fuzzy_match(normalized_content)
+        fuzzy_old_text = normalize_for_fuzzy_match(normalized_old_text)
+        occurrences = fuzzy_content.count(fuzzy_old_text)
+        if occurrences > 1:
             raise ValueError(
-                f"Found multiple occurrences of the text in {path}. Provide more context to make it unique."
+                f"Found {occurrences} occurrences of the text in {path}. The text must be unique. Please provide more context to make it unique."
             )
 
-        updated = content.replace(old_text, new_text, 1)
-        if updated == content:
-            raise ValueError(
-                f"No changes made to {path}. The replacement produced identical content."
-            )
-
-        absolute_path.write_text(updated, encoding="utf-8")
-
-        diff_lines = difflib.unified_diff(
-            content.splitlines(keepends=True),
-            updated.splitlines(keepends=True),
-            fromfile=f"{path} (before)",
-            tofile=f"{path} (after)",
+        base_content = match_result.content_for_replacement
+        updated = (
+            base_content[: match_result.index]
+            + normalized_new_text
+            + base_content[match_result.index + match_result.match_length :]
         )
-        diff = "".join(diff_lines)
-        details = EditToolDetails(diff=diff, first_changed_line=_first_changed_line(content, updated))
+        if updated == base_content:
+            raise ValueError(
+                f"No changes made to {path}. The replacement produced identical content. "
+                "This might indicate an issue with special characters or the text not existing as expected."
+            )
+
+        final_content = bom + restore_line_endings(updated, original_ending)
+        await ops.write_file(absolute_path, final_content)
+        if signal and signal.is_set():
+            raise RuntimeError("Operation aborted")
+
+        diff, first_changed_line = generate_diff_string(base_content, updated)
+        details = EditToolDetails(diff=diff, first_changed_line=first_changed_line)
 
         return ToolResult(
             content=[TextContent(text=f"Successfully replaced text in {path}.")],

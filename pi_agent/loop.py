@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from pi_ai.providers import stream_simple
 from pi_ai.types import AssistantMessage, Context, SimpleStreamOptions, ToolResultMessage, TextContent
+from pi_ai.validation import validate_tool_arguments
 from pi_tools.base import ToolDefinition, ToolResult
 
 from .events import AgentEventStream
@@ -210,9 +211,10 @@ async def _execute_tool_calls(
             if tool is None:
                 raise RuntimeError(f"Tool {tool_call.name} not found")
 
+            validated_args = validate_tool_arguments([t.to_tool() for t in tools], tool_call)
             result = await tool.execute(
                 tool_call.id,
-                tool_call.arguments,
+                validated_args,
                 signal,
                 lambda partial: stream.push(
                     {

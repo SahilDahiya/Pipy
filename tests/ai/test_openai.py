@@ -43,3 +43,21 @@ def test_openai_sanitizes_surrogates():
     params = openai_provider._build_params(model, ctx, None)
     assert "\ud83d" not in params["messages"][0]["content"]
     assert "\udc00" not in params["messages"][1]["content"]
+
+
+def test_openai_normalizes_pipe_tool_call_ids():
+    model = create_openai_model("gpt-4o-mini", provider="openai")
+    tool_call = ToolCall(id="call_abc|long+id==", name="echo", arguments={"value": "hi"})
+    assistant = create_assistant_message([tool_call], stop_reason="toolUse")
+    tool_result = ToolResultMessage(
+        tool_call_id="call_abc|long+id==",
+        tool_name="echo",
+        content=[TextContent(text="ok")],
+        is_error=False,
+    )
+    ctx = Context(system_prompt=None, messages=[assistant, tool_result], tools=None)
+    params = openai_provider._build_params(model, ctx, None)
+
+    tool_messages = [msg for msg in params["messages"] if msg.get("role") == "tool"]
+    assert tool_messages
+    assert "|" not in tool_messages[0]["tool_call_id"]

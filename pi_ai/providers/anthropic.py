@@ -30,6 +30,7 @@ from ..types import (
     ToolCall,
     ToolResultMessage,
 )
+from ..utils.sanitize_unicode import sanitize_surrogates
 
 ANTHROPIC_VERSION = "2023-06-01"
 CLAUDE_CODE_VERSION = "2.1.2"
@@ -119,12 +120,14 @@ def _convert_content_blocks(
 ) -> str | List[Dict[str, Any]]:
     has_images = any(block.type == "image" for block in content)
     if not has_images:
-        return "\n".join(block.text for block in content if block.type == "text")
+        return sanitize_surrogates(
+            "\n".join(block.text for block in content if block.type == "text")
+        )
 
     blocks: List[Dict[str, Any]] = []
     for block in content:
         if block.type == "text":
-            blocks.append({"type": "text", "text": block.text})
+            blocks.append({"type": "text", "text": sanitize_surrogates(block.text)})
         else:
             blocks.append(
                 {
@@ -454,13 +457,18 @@ def _build_params(
             }
         ]
         if context.system_prompt:
-            system_blocks.append({"type": "text", "text": context.system_prompt})
+            system_blocks.append(
+                {"type": "text", "text": sanitize_surrogates(context.system_prompt)}
+            )
         if cache_control:
             for block in system_blocks:
                 block["cache_control"] = cache_control
         params["system"] = system_blocks
     elif context.system_prompt:
-        system_block: Dict[str, Any] = {"type": "text", "text": context.system_prompt}
+        system_block: Dict[str, Any] = {
+            "type": "text",
+            "text": sanitize_surrogates(context.system_prompt),
+        }
         if cache_control:
             system_block["cache_control"] = cache_control
         params["system"] = [system_block]
@@ -506,13 +514,15 @@ def _convert_messages(
         if msg.role == "user":
             if isinstance(msg.content, str):
                 if msg.content.strip():
-                    params.append({"role": "user", "content": msg.content})
+                    params.append({"role": "user", "content": sanitize_surrogates(msg.content)})
             else:
                 blocks: List[Dict[str, Any]] = []
                 for block in msg.content:
                     if block.type == "text":
                         if block.text.strip():
-                            blocks.append({"type": "text", "text": block.text})
+                            blocks.append(
+                                {"type": "text", "text": sanitize_surrogates(block.text)}
+                            )
                     elif block.type == "image" and "image" in model.input:
                         blocks.append(
                             {
@@ -530,18 +540,18 @@ def _convert_messages(
             blocks: List[Dict[str, Any]] = []
             for block in msg.content:
                 if block.type == "text" and block.text.strip():
-                    blocks.append({"type": "text", "text": block.text})
+                    blocks.append({"type": "text", "text": sanitize_surrogates(block.text)})
                 elif block.type == "thinking" and block.thinking.strip():
                     if block.thinking_signature:
                         blocks.append(
                             {
                                 "type": "thinking",
-                                "thinking": block.thinking,
+                                "thinking": sanitize_surrogates(block.thinking),
                                 "signature": block.thinking_signature,
                             }
                         )
                     else:
-                        blocks.append({"type": "text", "text": block.thinking})
+                        blocks.append({"type": "text", "text": sanitize_surrogates(block.thinking)})
                 elif block.type == "toolCall":
                     blocks.append(
                         {

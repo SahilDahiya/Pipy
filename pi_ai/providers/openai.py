@@ -13,6 +13,7 @@ from ..auth import get_env_api_key
 from ..models import calculate_cost, supports_xhigh
 from ..streaming import AssistantMessageEventStream
 from ..transform import transform_messages
+from ..utils.sanitize_unicode import sanitize_surrogates
 from ..types import (
     AssistantMessage,
     Context,
@@ -324,6 +325,7 @@ def stream_simple_openai_completions(
             session_id=options.session_id if options else None,
             on_payload=options.on_payload if options else None,
             reasoning_effort=reasoning,
+            tool_choice=options.tool_choice if options else None,
         ),
     )
 
@@ -451,7 +453,7 @@ def _convert_messages(
 
     if context.system_prompt:
         role = "developer" if model.reasoning and compat.supports_developer_role else "system"
-        params.append({"role": role, "content": context.system_prompt})
+        params.append({"role": role, "content": sanitize_surrogates(context.system_prompt)})
 
     last_role: Optional[str] = None
 
@@ -462,12 +464,12 @@ def _convert_messages(
             params.append({"role": "assistant", "content": "I have processed the tool results."})
         if msg.role == "user":
             if isinstance(msg.content, str):
-                params.append({"role": "user", "content": msg.content})
+                params.append({"role": "user", "content": sanitize_surrogates(msg.content)})
             else:
                 content: List[Dict[str, Any]] = []
                 for item in msg.content:
                     if item.type == "text":
-                        content.append({"type": "text", "text": item.text})
+                        content.append({"type": "text", "text": sanitize_surrogates(item.text)})
                     else:
                         content.append(
                             {
@@ -489,14 +491,16 @@ def _convert_messages(
             text_blocks = [b for b in msg.content if b.type == "text" and b.text.strip()]
             if text_blocks:
                 if model.provider == "github-copilot":
-                    assistant_msg["content"] = "".join(b.text for b in text_blocks)
+                    assistant_msg["content"] = sanitize_surrogates("".join(b.text for b in text_blocks))
                 else:
-                    assistant_msg["content"] = [{"type": "text", "text": b.text} for b in text_blocks]
+                    assistant_msg["content"] = [
+                        {"type": "text", "text": sanitize_surrogates(b.text)} for b in text_blocks
+                    ]
 
             thinking_blocks = [b for b in msg.content if b.type == "thinking" and b.thinking.strip()]
             if thinking_blocks:
                 if compat.requires_thinking_as_text:
-                    thinking_text = "\n\n".join(b.thinking for b in thinking_blocks)
+                    thinking_text = sanitize_surrogates("\n\n".join(b.thinking for b in thinking_blocks))
                     if assistant_msg.get("content"):
                         content_list = assistant_msg["content"]
                         if isinstance(content_list, list):
@@ -508,7 +512,9 @@ def _convert_messages(
                 else:
                     signature = thinking_blocks[0].thinking_signature
                     if signature:
-                        assistant_msg[signature] = "\n".join(b.thinking for b in thinking_blocks)
+                        assistant_msg[signature] = sanitize_surrogates(
+                            "\n".join(b.thinking for b in thinking_blocks)
+                        )
 
             tool_calls = [b for b in msg.content if b.type == "toolCall"]
             if tool_calls:
@@ -539,6 +545,7 @@ def _convert_messages(
             text_result = "".join(
                 block.text for block in msg.content if block.type == "text"
             )
+            text_result = sanitize_surrogates(text_result)
             has_images = any(block.type == "image" for block in msg.content)
             has_text = len(text_result) > 0
 

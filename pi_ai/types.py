@@ -186,3 +186,4 @@ class StreamOptions:
 class SimpleStreamOptions(StreamOptions):
     reasoning: Optional[Literal["minimal", "low", "medium", "high", "xhigh"]] = None
     thinking_budgets: Optional[Dict[str, int]] = None
+    tool_choice: Optional[str | Dict[str, Dict[str, str]]] = None

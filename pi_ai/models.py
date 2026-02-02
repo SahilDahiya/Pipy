@@ -96,7 +96,8 @@ def list_models(provider: str | None = None) -> List[Model]:
 
 
 def supports_xhigh(model: Model) -> bool:
-    return model.supports_xhigh
+    xhigh_models = {"gpt-5.1-codex-max", "gpt-5.2", "gpt-5.2-codex"}
+    return model.supports_xhigh or model.id in xhigh_models
 
 
 def calculate_cost(model: Model, usage: Usage) -> None:

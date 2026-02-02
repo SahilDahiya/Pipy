@@ -1,0 +1,1 @@
+"""Cross-provider context serialization."""

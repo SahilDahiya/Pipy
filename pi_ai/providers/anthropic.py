@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,7 @@ from ..streaming import AssistantMessageEventStream
 from ..transform import transform_messages
 from ..types import (
     AssistantMessage,
+    CacheRetention,
     Context,
     ImageContent,
     Message,
@@ -30,18 +32,115 @@ from ..types import (
 )
 
 ANTHROPIC_VERSION = "2023-06-01"
+CLAUDE_CODE_VERSION = "2.1.2"
+CLAUDE_CODE_TOOLS = [
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Grep",
+    "Glob",
+    "AskUserQuestion",
+    "EnterPlanMode",
+    "ExitPlanMode",
+    "KillShell",
+    "NotebookEdit",
+    "Skill",
+    "Task",
+    "TaskOutput",
+    "TodoWrite",
+    "WebFetch",
+    "WebSearch",
+]
+_CLAUDE_TOOL_LOOKUP = {name.lower(): name for name in CLAUDE_CODE_TOOLS}
+
+
+def _to_claude_code_name(name: str) -> str:
+    return _CLAUDE_TOOL_LOOKUP.get(name.lower(), name)
+
+
+def _from_claude_code_name(name: str, tools: Optional[List[Tool]] = None) -> str:
+    if tools:
+        lower_name = name.lower()
+        for tool in tools:
+            if tool.name.lower() == lower_name:
+                return tool.name
+    return name
 
 
 @dataclass
 class AnthropicOptions(StreamOptions):
     thinking_enabled: Optional[bool] = None
     thinking_budget_tokens: Optional[int] = None
+    interleaved_thinking: Optional[bool] = None
     tool_choice: Optional[str | Dict[str, str]] = None
 
 
 async def _maybe_abort(signal: Optional[asyncio.Event]) -> None:
     if signal and signal.is_set():
         raise RuntimeError("Request was aborted")
+
+
+def _is_oauth_token(api_key: str) -> bool:
+    return "sk-ant-oat" in api_key
+
+
+def _resolve_cache_retention(cache_retention: Optional[CacheRetention]) -> CacheRetention:
+    if cache_retention:
+        return cache_retention
+    if os.getenv("PI_CACHE_RETENTION") == "long":
+        return "long"
+    return "short"
+
+
+def _get_cache_control(
+    base_url: str, cache_retention: Optional[CacheRetention]
+) -> tuple[CacheRetention, Optional[Dict[str, str]]]:
+    retention = _resolve_cache_retention(cache_retention)
+    if retention == "none":
+        return retention, None
+    ttl = "1h" if retention == "long" and "api.anthropic.com" in base_url else None
+    cache_control: Dict[str, str] = {"type": "ephemeral"}
+    if ttl:
+        cache_control["ttl"] = ttl
+    return retention, cache_control
+
+
+def _merge_headers(*sources: Optional[Dict[str, str]]) -> Dict[str, str]:
+    merged: Dict[str, str] = {}
+    for source in sources:
+        if source:
+            merged.update(source)
+    return merged
+
+
+def _convert_content_blocks(
+    content: List[ImageContent | TextContent],
+) -> str | List[Dict[str, Any]]:
+    has_images = any(block.type == "image" for block in content)
+    if not has_images:
+        return "\n".join(block.text for block in content if block.type == "text")
+
+    blocks: List[Dict[str, Any]] = []
+    for block in content:
+        if block.type == "text":
+            blocks.append({"type": "text", "text": block.text})
+        else:
+            blocks.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": block.mime_type,
+                        "data": block.data,
+                    },
+                }
+            )
+
+    if not any(block.get("type") == "text" for block in blocks):
+        blocks.insert(0, {"type": "text", "text": "(see attached image)"})
+
+    return blocks
 
 
 def stream_anthropic(
@@ -69,11 +168,21 @@ def stream_anthropic(
                     f"No API key for provider: {model.provider}. Set an env var or pass api_key."
                 )
 
-            params = _build_params(model, context, options)
+            is_oauth = _is_oauth_token(api_key)
+            _, cache_control = _get_cache_control(
+                model.base_url, options.cache_retention if options else None
+            )
+            params = _build_params(model, context, is_oauth, cache_control, options)
             if options and options.on_payload:
                 options.on_payload(params)
 
-            headers = _build_headers(api_key, options.headers if options else None)
+            headers = _build_headers(
+                api_key,
+                model.headers,
+                options.headers if options else None,
+                is_oauth,
+                options.interleaved_thinking if options else True,
+            )
             url = _build_url(model.base_url)
 
             async with httpx.AsyncClient(timeout=None) as client:
@@ -120,9 +229,12 @@ def stream_anthropic(
                                     {"type": "thinking_start", "content_index": index, "partial": output}
                                 )
                             elif block_type == "tool_use":
+                                tool_name = block.get("name", "")
+                                if is_oauth:
+                                    tool_name = _from_claude_code_name(tool_name, context.tools)
                                 content = ToolCall(
                                     id=block.get("id", ""),
-                                    name=block.get("name", ""),
+                                    name=tool_name,
                                     arguments=block.get("input") or {},
                                 )
                                 output.content.append(content)
@@ -252,6 +364,10 @@ def stream_simple_anthropic(
     if not api_key:
         raise RuntimeError(f"No API key for provider: {model.provider}")
 
+    thinking_budget = None
+    if options and options.reasoning and options.thinking_budgets:
+        thinking_budget = options.thinking_budgets.get(options.reasoning)
+
     return stream_anthropic(
         model,
         context,
@@ -263,7 +379,9 @@ def stream_simple_anthropic(
             signal=options.signal if options else None,
             session_id=options.session_id if options else None,
             on_payload=options.on_payload if options else None,
+            cache_retention=options.cache_retention if options else None,
             thinking_enabled=bool(options.reasoning) if options else False,
+            thinking_budget_tokens=thinking_budget,
         ),
     )
 
@@ -277,19 +395,50 @@ def _build_url(base_url: str) -> str:
     return f"{base}/v1/messages"
 
 
-def _build_headers(api_key: str, extra: Optional[Dict[str, str]]) -> Dict[str, str]:
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-    }
-    if extra:
-        headers.update(extra)
-    return headers
+def _build_headers(
+    api_key: str,
+    model_headers: Optional[Dict[str, str]],
+    extra: Optional[Dict[str, str]],
+    is_oauth: bool,
+    interleaved_thinking: Optional[bool],
+) -> Dict[str, str]:
+    beta_features = ["fine-grained-tool-streaming-2025-05-14"]
+    if interleaved_thinking is not False:
+        beta_features.append("interleaved-thinking-2025-05-14")
+
+    if is_oauth:
+        beta_header = f"claude-code-20250219,oauth-2025-04-20,{','.join(beta_features)}"
+        base_headers = {
+            "accept": "application/json",
+            "anthropic-dangerous-direct-browser-access": "true",
+            "anthropic-beta": beta_header,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "authorization": f"Bearer {api_key}",
+            "content-type": "application/json",
+            "user-agent": f"claude-cli/{CLAUDE_CODE_VERSION} (external, cli)",
+            "x-app": "cli",
+        }
+    else:
+        base_headers = {
+            "accept": "application/json",
+            "anthropic-dangerous-direct-browser-access": "true",
+            "anthropic-beta": ",".join(beta_features),
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+            "x-api-key": api_key,
+        }
+
+    return _merge_headers(base_headers, model_headers, extra)
 
 
-def _build_params(model: Model, context: Context, options: Optional[AnthropicOptions]) -> Dict[str, Any]:
-    messages = _convert_messages(context.messages, model)
+def _build_params(
+    model: Model,
+    context: Context,
+    is_oauth: bool,
+    cache_control: Optional[Dict[str, str]],
+    options: Optional[AnthropicOptions],
+) -> Dict[str, Any]:
+    messages = _convert_messages(context.messages, model, context.tools, is_oauth, cache_control)
     params: Dict[str, Any] = {
         "model": model.id,
         "messages": messages,
@@ -297,19 +446,30 @@ def _build_params(model: Model, context: Context, options: Optional[AnthropicOpt
         "max_tokens": options.max_tokens if options and options.max_tokens else (model.max_tokens or 1024),
     }
 
-    if context.system_prompt:
-        params["system"] = [
+    if is_oauth:
+        system_blocks = [
             {
                 "type": "text",
-                "text": context.system_prompt,
+                "text": "You are Claude Code, Anthropic's official CLI for Claude.",
             }
         ]
+        if context.system_prompt:
+            system_blocks.append({"type": "text", "text": context.system_prompt})
+        if cache_control:
+            for block in system_blocks:
+                block["cache_control"] = cache_control
+        params["system"] = system_blocks
+    elif context.system_prompt:
+        system_block: Dict[str, Any] = {"type": "text", "text": context.system_prompt}
+        if cache_control:
+            system_block["cache_control"] = cache_control
+        params["system"] = [system_block]
 
     if options and options.temperature is not None:
         params["temperature"] = options.temperature
 
     if context.tools:
-        params["tools"] = _convert_tools(context.tools)
+        params["tools"] = _convert_tools(context.tools, is_oauth)
 
     if options and options.thinking_enabled and model.reasoning:
         params["thinking"] = {
@@ -330,11 +490,19 @@ def _normalize_tool_call_id(tool_id: str, _model: Model, _source: AssistantMessa
     return "".join(ch if ch.isalnum() or ch in "_-" else "_" for ch in tool_id)[:64]
 
 
-def _convert_messages(messages: List[Message], model: Model) -> List[Dict[str, Any]]:
+def _convert_messages(
+    messages: List[Message],
+    model: Model,
+    tools: Optional[List[Tool]],
+    is_oauth: bool,
+    cache_control: Optional[Dict[str, str]],
+) -> List[Dict[str, Any]]:
     params: List[Dict[str, Any]] = []
     transformed_messages = transform_messages(messages, model, _normalize_tool_call_id)
 
-    for msg in transformed_messages:
+    i = 0
+    while i < len(transformed_messages):
+        msg = transformed_messages[i]
         if msg.role == "user":
             if isinstance(msg.content, str):
                 if msg.content.strip():
@@ -379,56 +547,53 @@ def _convert_messages(messages: List[Message], model: Model) -> List[Dict[str, A
                         {
                             "type": "tool_use",
                             "id": block.id,
-                            "name": block.name,
-                            "input": block.arguments,
+                            "name": _to_claude_code_name(block.name) if is_oauth else block.name,
+                            "input": block.arguments or {},
                         }
                     )
             if blocks:
                 params.append({"role": "assistant", "content": blocks})
         elif msg.role == "toolResult":
-            blocks: List[Dict[str, Any]] = []
-            text_parts = [b.text for b in msg.content if b.type == "text"]
-            if text_parts:
-                blocks.append({"type": "text", "text": "\n".join(text_parts)})
-            if any(b.type == "image" for b in msg.content) and "image" in model.input:
-                for block in msg.content:
-                    if block.type == "image":
-                        blocks.append(
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": block.mime_type,
-                                    "data": block.data,
-                                },
-                            }
-                        )
-            if not blocks:
-                blocks = [{"type": "text", "text": "(see attached image)"}]
-            params.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": msg.tool_call_id,
-                            "content": blocks,
-                            "is_error": msg.is_error,
-                        }
-                    ],
-                }
-            )
+            tool_results: List[Dict[str, Any]] = []
+            while i < len(transformed_messages) and transformed_messages[i].role == "toolResult":
+                tool_msg = transformed_messages[i]
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_msg.tool_call_id,
+                        "content": _convert_content_blocks(tool_msg.content),
+                        "is_error": tool_msg.is_error,
+                    }
+                )
+                i += 1
+            params.append({"role": "user", "content": tool_results})
+            continue
+
+        i += 1
+
+    if cache_control and params:
+        last_message = params[-1]
+        if last_message.get("role") == "user":
+            content = last_message.get("content")
+            if isinstance(content, list) and content:
+                last_block = content[-1]
+                if isinstance(last_block, dict) and last_block.get("type") in {
+                    "text",
+                    "image",
+                    "tool_result",
+                }:
+                    last_block["cache_control"] = cache_control
 
     return params
 
 
-def _convert_tools(tools: List[Tool]) -> List[Dict[str, Any]]:
+def _convert_tools(tools: List[Tool], is_oauth: bool) -> List[Dict[str, Any]]:
     converted: List[Dict[str, Any]] = []
     for tool in tools:
         schema = tool.parameters
         converted.append(
             {
-                "name": tool.name,
+                "name": _to_claude_code_name(tool.name) if is_oauth else tool.name,
                 "description": tool.description,
                 "input_schema": {
                     "type": "object",

@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Api = Literal["openai-completions", "anthropic-messages"]
 StopReason = Literal["stop", "length", "toolUse", "error", "aborted"]
+CacheRetention = Literal["none", "short", "long"]
 
 
 class ModelCost(BaseModel):
@@ -178,6 +179,7 @@ class StreamOptions:
     signal: Optional[asyncio.Event] = None
     session_id: Optional[str] = None
     on_payload: Optional[Callable[[Dict[str, Any]], None]] = None
+    cache_retention: Optional[CacheRetention] = None
 
 
 @dataclass

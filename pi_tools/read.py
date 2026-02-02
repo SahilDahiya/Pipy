@@ -14,7 +14,7 @@ from pi_ai.types import ImageContent, TextContent
 
 from .base import ToolDefinition, ToolResult
 from .path_utils import resolve_read_path
-from .truncate import DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, TruncationResult, format_size, truncate_head
+from .truncate import DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, format_size, truncate_head
 
 READ_SCHEMA: Dict[str, object] = {
     "type": "object",

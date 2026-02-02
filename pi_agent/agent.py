@@ -113,6 +113,22 @@ class Agent:
     def state(self) -> AgentState:
         return self._state
 
+    @property
+    def session_id(self) -> Optional[str]:
+        return self._session_id
+
+    @session_id.setter
+    def session_id(self, value: Optional[str]) -> None:
+        self._session_id = value
+
+    @property
+    def thinking_budgets(self) -> Optional[dict]:
+        return self._thinking_budgets
+
+    @thinking_budgets.setter
+    def thinking_budgets(self, value: Optional[dict]) -> None:
+        self._thinking_budgets = value
+
     def subscribe(self, fn: Callable[[AgentEvent], None]) -> Callable[[], None]:
         self._listeners.add(fn)
 

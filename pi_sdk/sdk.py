@@ -64,6 +64,9 @@ def create_agent(
             return await resolved_auth.get_api_key(provider_name)
         return None
 
+    if session_manager and session_id is None:
+        session_id = session_manager.get_session_id()
+
     agent = Agent(
         model=resolved_model,
         system_prompt=system_prompt,
@@ -85,6 +88,20 @@ def create_agent(
         get_steering_messages=get_steering_messages,
         get_follow_up_messages=get_follow_up_messages,
     )
-    if session_manager and Path(session_manager.path).exists():
-        agent.replace_messages(session_manager.load_messages())
+
+    session_file = session_manager.get_session_file() if session_manager else None
+    if session_manager and session_file and Path(session_file).exists():
+        context = session_manager.build_session_context()
+        if context.messages:
+            agent.replace_messages(context.messages)
+        if thinking_level is None and context.thinkingLevel:
+            agent.set_thinking_level(context.thinkingLevel)
+        if model is None and context.model:
+            try:
+                restored = get_model(context.model.get(\"provider\", \"\"), context.model.get(\"modelId\", \"\"))
+            except Exception:
+                restored = None
+            if restored:
+                agent.set_model(restored)
+
     return agent

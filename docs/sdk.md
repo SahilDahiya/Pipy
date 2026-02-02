@@ -25,6 +25,7 @@ async for event in agent.send("Summarize README.md"):
 ## Sessions and tools
 
 - Pass `session_path` to resume a JSONL session.
+- When a session includes model or thinking-level entries, they are restored unless explicitly overridden.
 - Override tools via `tools=[...]` or use `create_default_tools(cwd)`.
 - Provide `auth_path` or `auth_storage` to reuse OAuth tokens.
 

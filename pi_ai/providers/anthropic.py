@@ -12,6 +12,7 @@ import httpx
 from ..auth import get_env_api_key
 from ..models import calculate_cost
 from ..streaming import AssistantMessageEventStream
+from ..transform import transform_messages
 from ..types import (
     AssistantMessage,
     Context,
@@ -325,10 +326,15 @@ def _build_params(model: Model, context: Context, options: Optional[AnthropicOpt
     return params
 
 
+def _normalize_tool_call_id(tool_id: str, _model: Model, _source: AssistantMessage) -> str:
+    return "".join(ch if ch.isalnum() or ch in "_-" else "_" for ch in tool_id)[:64]
+
+
 def _convert_messages(messages: List[Message], model: Model) -> List[Dict[str, Any]]:
     params: List[Dict[str, Any]] = []
+    transformed_messages = transform_messages(messages, model, _normalize_tool_call_id)
 
-    for msg in messages:
+    for msg in transformed_messages:
         if msg.role == "user":
             if isinstance(msg.content, str):
                 if msg.content.strip():

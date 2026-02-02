@@ -12,6 +12,7 @@ import httpx
 from ..auth import get_env_api_key
 from ..models import calculate_cost, supports_xhigh
 from ..streaming import AssistantMessageEventStream
+from ..transform import transform_messages
 from ..types import (
     AssistantMessage,
     Context,
@@ -436,7 +437,7 @@ def _convert_messages(
 ) -> List[Dict[str, Any]]:
     params: List[Dict[str, Any]] = []
 
-    def normalize_tool_call_id(tool_id: str) -> str:
+    def normalize_tool_call_id(tool_id: str, _model: Model, _source: AssistantMessage) -> str:
         if compat.requires_mistral_tool_ids:
             return _normalize_mistral_tool_id(tool_id)
         if "|" in tool_id:
@@ -454,7 +455,9 @@ def _convert_messages(
 
     last_role: Optional[str] = None
 
-    for msg in context.messages:
+    transformed_messages = transform_messages(context.messages, model, normalize_tool_call_id)
+
+    for msg in transformed_messages:
         if compat.requires_assistant_after_tool_result and last_role == "toolResult" and msg.role == "user":
             params.append({"role": "assistant", "content": "I have processed the tool results."})
         if msg.role == "user":

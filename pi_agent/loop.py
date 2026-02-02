@@ -118,6 +118,14 @@ async def _stream_assistant_response(
     stream: AgentEventStream,
     stream_fn: Optional[StreamFn],
 ) -> AssistantMessage:
+    resolved_api_key = config.api_key
+    if config.get_api_key is not None:
+        maybe_key = config.get_api_key(config.model.provider)
+        if hasattr(maybe_key, "__await__"):
+            resolved_api_key = await maybe_key  # type: ignore[assignment]
+        else:
+            resolved_api_key = maybe_key  # type: ignore[assignment]
+
     messages = config.convert_to_llm(context.messages)
     llm_context = Context(
         system_prompt=context.system_prompt,
@@ -126,7 +134,7 @@ async def _stream_assistant_response(
     )
 
     options = SimpleStreamOptions(
-        api_key=config.api_key,
+        api_key=resolved_api_key,
         headers=config.headers,
         max_tokens=config.max_tokens,
         temperature=config.temperature,

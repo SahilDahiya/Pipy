@@ -58,6 +58,7 @@ class Agent:
         stream_fn: Optional[Callable[[Model, Any, Any], Any]] = None,
         session_id: Optional[str] = None,
         api_key: Optional[str] = None,
+        get_api_key: Optional[Callable[[str], Awaitable[Optional[str]] | Optional[str]]] = None,
         headers: Optional[dict] = None,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
@@ -79,6 +80,7 @@ class Agent:
         self._stream_fn = stream_fn or stream_simple
         self._session_id = session_id
         self._session_manager = session_manager
+        self._get_api_key = get_api_key
         self._api_key = api_key
         self._headers = headers
         self._max_tokens = max_tokens
@@ -176,6 +178,7 @@ class Agent:
             model=self._state.model,
             convert_to_llm=self._convert_to_llm,
             stream_fn=self._stream_fn,
+            get_api_key=self._get_api_key,
             reasoning=reasoning,
             session_id=self._session_id,
             api_key=self._api_key,

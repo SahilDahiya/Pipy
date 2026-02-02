@@ -26,6 +26,7 @@ class AgentLoopConfig:
     model: Model
     convert_to_llm: Callable[[List[AgentMessage]], List[Message]]
     stream_fn: Optional[Callable[[Model, Any, SimpleStreamOptions], Any]] = None
+    get_api_key: Optional[Callable[[str], Awaitable[Optional[str]] | Optional[str]]] = None
     reasoning: Optional[str] = None
     session_id: Optional[str] = None
     api_key: Optional[str] = None

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from pi_agent.agent import Agent
+from pi_ai.auth import AuthStorage
 from pi_ai.models import get_model
 from pi_ai.types import Model
 from pi_session.manager import SessionManager
@@ -33,11 +34,21 @@ def create_agent(
     session_path: Optional[str] = None,
     session_id: Optional[str] = None,
     api_key: Optional[str] = None,
+    auth_path: Optional[str] = None,
+    auth_storage: Optional[AuthStorage] = None,
 ) -> Agent:
     resolved_cwd = cwd or str(Path.cwd())
     resolved_model = model or get_model(provider, model_id)
     resolved_tools = list(tools) if tools is not None else create_default_tools(resolved_cwd)
     session_manager = SessionManager(session_path) if session_path else None
+    resolved_auth = auth_storage or (AuthStorage(auth_path) if auth_path else None)
+
+    async def resolve_api_key(provider_name: str) -> Optional[str]:
+        if api_key:
+            return api_key
+        if resolved_auth:
+            return await resolved_auth.get_api_key(provider_name)
+        return None
 
     agent = Agent(
         model=resolved_model,
@@ -45,6 +56,7 @@ def create_agent(
         tools=resolved_tools,
         session_id=session_id,
         api_key=api_key,
+        get_api_key=resolve_api_key,
         session_manager=session_manager,
     )
     if session_manager and Path(session_manager.path).exists():

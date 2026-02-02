@@ -11,6 +11,12 @@ Port the core of pi-mono into Python so developers can `pip install pi-python` a
 - Continuously refer back to `/home/dahiy/repos/pi-mono` while porting.
 - When in doubt, re-check the corresponding pi-mono module before implementing or adjusting behavior.
 
+## Working rules
+
+1. Verify every change against `/home/dahiy/repos/pi-mono` so behavior stays aligned.
+2. Keep working until the porting goal in this document is reached.
+3. Commit meaningful changes as you go to make review easy.
+
 ## In scope
 
 - `pi_ai`: LLM abstraction with OpenAI Completions + Anthropic Messages

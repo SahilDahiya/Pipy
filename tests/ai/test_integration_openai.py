@@ -47,7 +47,7 @@ async def test_openai_basic_text_generation():
     response = await complete(
         model,
         context,
-        OpenAICompletionsOptions(api_key=OPENAI_API_KEY, temperature=0),
+        OpenAICompletionsOptions(api_key=OPENAI_API_KEY),
     )
     assert response.role == "assistant"
     assert response.content
@@ -69,7 +69,6 @@ async def test_openai_tool_call_streaming():
     options = OpenAICompletionsOptions(
         api_key=OPENAI_API_KEY,
         tool_choice="required",
-        temperature=0,
     )
 
     stream_response = stream(model, context, options)

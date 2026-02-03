@@ -44,7 +44,7 @@ async def test_openai_abort_has_no_usage_tokens():
     message = await _abort_with_signal(
         model,
         context,
-        OpenAICompletionsOptions(api_key=OPENAI_API_KEY, temperature=0),
+        OpenAICompletionsOptions(api_key=OPENAI_API_KEY),
     )
     assert message.stop_reason == "aborted"
     assert message.usage.input == 0

@@ -53,7 +53,7 @@ async def test_openai_abort_and_continue():
     abort_message = await _abort_stream(
         model,
         context,
-        OpenAICompletionsOptions(api_key=OPENAI_API_KEY, temperature=0),
+        OpenAICompletionsOptions(api_key=OPENAI_API_KEY),
     )
     assert abort_message.stop_reason == "aborted"
 
@@ -63,7 +63,7 @@ async def test_openai_abort_and_continue():
     follow_up = await complete(
         model,
         context,
-        OpenAICompletionsOptions(api_key=OPENAI_API_KEY, temperature=0),
+        OpenAICompletionsOptions(api_key=OPENAI_API_KEY),
     )
     assert follow_up.stop_reason == "stop"
 

@@ -14,6 +14,7 @@ read_when: start here, onboarding, or you need to find the right doc fast
 - SDK embedding surface: `docs/sdk.md`
 - OAuth and auth storage: `docs/auth.md`
 - RPC integration: `docs/rpc.md`
+- Serialization and casing rules: `docs/serialization.md`
 - Development workflow: `docs/development.md`
 
 ## Document index
@@ -28,6 +29,7 @@ read_when: start here, onboarding, or you need to find the right doc fast
 - `docs/sdk.md` - Embedding entry points and usage patterns.
 - `docs/auth.md` - OAuth flows and auth.json storage.
 - `docs/rpc.md` - JSON-over-stdin/stdout protocol summary.
+- `docs/serialization.md` - Casing rules and wire-format conversions.
 - `docs/development.md` - Setup, tests, and local run commands.
 
 ## Keeping docs fresh

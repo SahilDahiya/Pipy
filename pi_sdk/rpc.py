@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, Optional
 from pi_agent.agent import Agent
 from pi_ai.models import get_model
 from pi_ai.types import ImageContent, UserMessage
+from pi_ai.utils.serialization import to_camel_dict, to_snake_dict, to_wire_event, to_wire_message
 from pi_sdk.sdk import create_agent
 
 
@@ -24,8 +25,34 @@ def _to_jsonable(value: Any) -> Any:
     return value
 
 
+def _normalize_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return to_snake_dict(payload)
+
+
+def _to_wire_response(payload: Dict[str, Any]) -> Dict[str, Any]:
+    data = payload.get("data")
+    if isinstance(data, dict):
+        if isinstance(data.get("messages"), list):
+            data["messages"] = [to_wire_message(msg) for msg in data["messages"]]
+        if "model" in data:
+            data["model"] = to_camel_dict(_to_jsonable(data["model"]))
+        if isinstance(data.get("models"), list):
+            data["models"] = [to_camel_dict(_to_jsonable(m)) for m in data["models"]]
+        payload["data"] = data
+    return to_camel_dict(payload)
+
+
+def _to_wire_payload(obj: Any) -> Any:
+    payload = _to_jsonable(obj)
+    if isinstance(payload, dict) and payload.get("type"):
+        if payload.get("type") == "response":
+            return _to_wire_response(payload)
+        return to_wire_event(payload)
+    return to_camel_dict(payload)
+
+
 def _emit(obj: Any) -> None:
-    sys.stdout.write(json.dumps(_to_jsonable(obj)) + "\n")
+    sys.stdout.write(json.dumps(_to_wire_payload(obj)) + "\n")
     sys.stdout.flush()
 
 
@@ -88,6 +115,8 @@ async def _handle_prompt(agent: Agent, payload: Dict[str, Any]) -> None:
 
     images = _parse_images(payload.get("images"))
     streaming_behavior = payload.get("streaming_behavior")
+    if streaming_behavior == "followUp":
+        streaming_behavior = "follow_up"
     if agent.state.is_streaming and streaming_behavior in {"steer", "follow_up"}:
         queued_message = UserMessage(content=message)
         if streaming_behavior == "steer":
@@ -153,6 +182,9 @@ async def _read_lines() -> None:
         if not line:
             continue
         data = json.loads(line)
+        if not isinstance(data, dict):
+            continue
+        data = _normalize_payload(data)
         msg_type = data.get("type")
 
         if msg_type in {"send", "prompt"}:

@@ -85,6 +85,7 @@ class TextContent(BaseModel):
 
     type: Literal["text"] = "text"
     text: str
+    text_signature: Optional[str] = None
 
 
 class ImageContent(BaseModel):

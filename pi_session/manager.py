@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 from uuid import uuid4
 
 from pi_ai.types import AssistantMessage, Message, ToolResultMessage, UserMessage
+from pi_ai.utils.serialization import from_wire_message, to_camel_dict, to_snake_dict, to_wire_message
 
 CURRENT_SESSION_VERSION = 3
 
@@ -61,6 +62,20 @@ def _parse_iso_timestamp(value: str) -> Optional[datetime]:
         return datetime.fromisoformat(value)
     except Exception:
         return None
+
+
+def _from_wire_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    data = to_snake_dict(entry)
+    if data.get("type") == "message":
+        data["message"] = from_wire_message(data.get("message"))
+    return data
+
+
+def _to_wire_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    data = dict(entry)
+    if data.get("type") == "message":
+        data["message"] = to_wire_message(data.get("message"))
+    return to_camel_dict(data)
 
 
 def _is_message_with_content(message: Any) -> bool:
@@ -153,7 +168,7 @@ def build_session_info(file_path: str) -> Optional[SessionInfo]:
         except json.JSONDecodeError:
             continue
         if isinstance(entry, dict):
-            entries.append(entry)
+            entries.append(_from_wire_entry(entry))
 
     if not entries:
         return None
@@ -259,7 +274,7 @@ class SessionHeader:
         }
         if self.parent_session:
             data["parent_session"] = self.parent_session
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -270,12 +285,13 @@ class SessionEntry:
     timestamp: str
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        data = {
             "type": self.type,
             "id": self.id,
             "parent_id": self.parent_id,
             "timestamp": self.timestamp,
         }
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -283,9 +299,14 @@ class SessionMessageEntry(SessionEntry):
     message: Dict[str, Any]
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data["message"] = self.message
-        return data
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "message": self.message,
+        }
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -293,9 +314,14 @@ class ThinkingLevelChangeEntry(SessionEntry):
     thinking_level: str
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data["thinking_level"] = self.thinking_level
-        return data
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "thinking_level": self.thinking_level,
+        }
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -304,10 +330,15 @@ class ModelChangeEntry(SessionEntry):
     model_id: str
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data["provider"] = self.provider
-        data["model_id"] = self.model_id
-        return data
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "provider": self.provider,
+            "model_id": self.model_id,
+        }
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -319,19 +350,20 @@ class CompactionEntry(SessionEntry):
     from_hook: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data.update(
-            {
-                "summary": self.summary,
-                "first_kept_entry_id": self.first_kept_entry_id,
-                "tokens_before": self.tokens_before,
-            }
-        )
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "summary": self.summary,
+            "first_kept_entry_id": self.first_kept_entry_id,
+            "tokens_before": self.tokens_before,
+        }
         if self.details is not None:
             data["details"] = self.details
         if self.from_hook is not None:
             data["from_hook"] = self.from_hook
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -342,13 +374,19 @@ class BranchSummaryEntry(SessionEntry):
     from_hook: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data.update({"from_id": self.from_id, "summary": self.summary})
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "from_id": self.from_id,
+            "summary": self.summary,
+        }
         if self.details is not None:
             data["details"] = self.details
         if self.from_hook is not None:
             data["from_hook"] = self.from_hook
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -357,11 +395,16 @@ class CustomEntry(SessionEntry):
     data: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data["custom_type"] = self.custom_type
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "custom_type": self.custom_type,
+        }
         if self.data is not None:
             data["data"] = self.data
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -372,11 +415,18 @@ class CustomMessageEntry(SessionEntry):
     details: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data.update({"custom_type": self.custom_type, "content": self.content, "display": self.display})
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "custom_type": self.custom_type,
+            "content": self.content,
+            "display": self.display,
+        }
         if self.details is not None:
             data["details"] = self.details
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -385,11 +435,16 @@ class LabelEntry(SessionEntry):
     label: Optional[str]
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
-        data["target_id"] = self.target_id
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+            "target_id": self.target_id,
+        }
         if self.label is not None:
             data["label"] = self.label
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -397,10 +452,15 @@ class SessionInfoEntry(SessionEntry):
     name: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        data = super().to_dict()
+        data = {
+            "type": self.type,
+            "id": self.id,
+            "parent_id": self.parent_id,
+            "timestamp": self.timestamp,
+        }
         if self.name is not None:
             data["name"] = self.name
-        return data
+        return _to_wire_entry(data)
 
 
 @dataclass
@@ -532,7 +592,7 @@ def load_entries_from_file(path: str) -> List[Dict[str, Any]]:
         except json.JSONDecodeError:
             continue
         if isinstance(data, dict) and data.get("type"):
-            entries.append(data)
+            entries.append(_from_wire_entry(data))
     if not any(entry.get("type") == "session" for entry in entries):
         return []
     return entries
@@ -855,6 +915,8 @@ class SessionManager:
             return
         if entries is None:
             entries = [entry.to_dict() for entry in self._file_entries]
+        else:
+            entries = [_to_wire_entry(entry) for entry in entries]
         content = "\n".join(json.dumps(entry) for entry in entries) + "\n"
         Path(self._session_file).write_text(content, encoding="utf-8")
 

@@ -122,7 +122,10 @@ def create_read_tool(cwd: str, options: Optional[ReadToolOptions] = None) -> Too
         limit = params.get("limit")
 
         absolute_path = resolve_read_path(path, cwd)
-        await ops.access(absolute_path)
+        try:
+            await ops.access(absolute_path)
+        except Exception as exc:
+            raise FileNotFoundError(f"File not found: {path}") from exc
 
         if signal and signal.is_set():
             raise RuntimeError("Operation aborted")

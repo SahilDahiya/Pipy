@@ -160,7 +160,7 @@ async def test_edit_preserves_crlf_line_endings(tmp_path: Path) -> None:
         {"path": str(test_file), "oldText": "second\n", "newText": "REPLACED\n"},
     )
 
-    assert test_file.read_text(encoding="utf-8") == "first\r\nREPLACED\r\nthird\r\n"
+    assert test_file.read_bytes().decode("utf-8") == "first\r\nREPLACED\r\nthird\r\n"
 
 
 @pytest.mark.asyncio
@@ -202,4 +202,4 @@ async def test_edit_preserves_bom(tmp_path: Path) -> None:
         {"path": str(test_file), "oldText": "second\n", "newText": "REPLACED\n"},
     )
 
-    assert test_file.read_text(encoding="utf-8") == "\ufefffirst\r\nREPLACED\r\nthird\r\n"
+    assert test_file.read_bytes().decode("utf-8") == "\ufefffirst\r\nREPLACED\r\nthird\r\n"

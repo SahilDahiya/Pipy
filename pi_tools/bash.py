@@ -12,7 +12,7 @@ from typing import Awaitable, Callable, Dict, Optional
 from pi_ai.types import TextContent
 
 from .base import ToolDefinition, ToolResult, ToolUpdateCallback
-from .shell import get_shell_config, get_shell_env, kill_process_tree
+from . import shell as shell_module
 from .truncate import DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, TruncationResult, format_size, truncate_tail
 
 BASH_SCHEMA: Dict[str, object] = {
@@ -54,14 +54,14 @@ BashSpawnHook = Callable[[BashSpawnContext], BashSpawnContext]
 
 
 async def _default_exec(command: str, cwd: str, options: Dict[str, object]) -> Dict[str, Optional[int]]:
-    shell_config = get_shell_config()
+    shell_config = shell_module.get_shell_config()
     shell = shell_config["shell"]
     args = shell_config["args"]
 
     if not Path(cwd).exists():
         raise RuntimeError(f"Working directory does not exist: {cwd}\nCannot execute bash commands.")
 
-    env = options.get("env") or get_shell_env()
+    env = options.get("env") or shell_module.get_shell_env()
     signal = options.get("signal")
     timeout = options.get("timeout")
     on_data = options.get("on_data")
@@ -93,7 +93,7 @@ async def _default_exec(command: str, cwd: str, options: Dict[str, object]) -> D
         while True:
             if signal is not None and isinstance(signal, asyncio.Event) and signal.is_set():
                 if process.pid:
-                    kill_process_tree(process.pid)
+                    shell_module.kill_process_tree(process.pid)
                 await process.wait()
                 raise RuntimeError("aborted")
 
@@ -101,7 +101,7 @@ async def _default_exec(command: str, cwd: str, options: Dict[str, object]) -> D
                 elapsed = asyncio.get_event_loop().time() - start_time
                 if elapsed >= timeout:
                     if process.pid:
-                        kill_process_tree(process.pid)
+                        shell_module.kill_process_tree(process.pid)
                     await process.wait()
                     raise RuntimeError(f"timeout:{timeout}")
 
@@ -134,7 +134,7 @@ def _get_temp_file_path() -> str:
 def _resolve_spawn_context(
     command: str, cwd: str, spawn_hook: Optional[BashSpawnHook]
 ) -> BashSpawnContext:
-    context = BashSpawnContext(command=command, cwd=cwd, env=dict(get_shell_env()))
+    context = BashSpawnContext(command=command, cwd=cwd, env=dict(shell_module.get_shell_env()))
     return spawn_hook(context) if spawn_hook else context
 
 

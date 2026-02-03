@@ -98,7 +98,7 @@ def create_agent(
             agent.set_thinking_level(context.thinkingLevel)
         if model is None and context.model:
             try:
-                restored = get_model(context.model.get(\"provider\", \"\"), context.model.get(\"modelId\", \"\"))
+                restored = get_model(context.model.get("provider", ""), context.model.get("modelId", ""))
             except Exception:
                 restored = None
             if restored:

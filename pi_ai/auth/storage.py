@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
-from . import get_env_api_key
+from .env import get_env_api_key
 from .oauth import get_oauth_api_key, get_oauth_provider
 from .types import OAuthCredentials, OAuthLoginCallbacks
 

@@ -24,7 +24,7 @@ def _mock_stream(message):
 
 
 def _identity_converter(messages: list[AgentMessage]) -> list[Message]:
-    return [m for m in messages if m.role in {"user", "assistant", "toolResult"}]
+    return [m for m in messages if m.role in {"user", "assistant", "tool_result"}]
 
 
 @pytest.mark.asyncio
@@ -76,7 +76,7 @@ async def test_custom_messages_filtered():
     def convert(messages: list[AgentMessage]) -> list[Message]:
         nonlocal converted
         converted = [
-            m for m in messages if getattr(m, "role", None) in {"user", "assistant", "toolResult"}
+            m for m in messages if getattr(m, "role", None) in {"user", "assistant", "tool_result"}
         ]
         return converted
 
@@ -120,7 +120,7 @@ async def test_transform_context_before_convert():
 
     def convert(messages):
         nonlocal converted
-        converted = [m for m in messages if m.role in {"user", "assistant", "toolResult"}]
+        converted = [m for m in messages if m.role in {"user", "assistant", "tool_result"}]
         return converted
 
     config = AgentLoopConfig(
@@ -176,9 +176,9 @@ async def test_tool_calls_execute_and_continue():
             if call_index == 0:
                 msg = create_assistant_message(
                     [ToolCall(id="tool-1", name="echo", arguments={"value": "hello"})],
-                    stop_reason="toolUse",
+                    stop_reason="tool_use",
                 )
-                stream.push({"type": "done", "reason": "toolUse", "message": msg})
+                stream.push({"type": "done", "reason": "tool_use", "message": msg})
                 stream.end(msg)
             else:
                 msg = create_assistant_message([TextContent(text="done")])
@@ -246,9 +246,9 @@ async def test_steering_skips_remaining_tool_calls():
                         ToolCall(id="tool-1", name="echo", arguments={"value": "first"}),
                         ToolCall(id="tool-2", name="echo", arguments={"value": "second"}),
                     ],
-                    stop_reason="toolUse",
+                    stop_reason="tool_use",
                 )
-                stream.push({"type": "done", "reason": "toolUse", "message": msg})
+                stream.push({"type": "done", "reason": "tool_use", "message": msg})
                 stream.end(msg)
             else:
                 msg = create_assistant_message([TextContent(text="done")])

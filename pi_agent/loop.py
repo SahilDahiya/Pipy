@@ -147,7 +147,7 @@ async def _run_loop(
                 stream.end(new_messages)
                 return
 
-            tool_calls = [block for block in message.content if block.type == "toolCall"]
+            tool_calls = [block for block in message.content if block.type == "tool_call"]
             has_more_tool_calls = bool(tool_calls)
 
             tool_results: List[ToolResultMessage] = []
@@ -296,7 +296,7 @@ async def _execute_tool_calls(
     ],
 ) -> ToolExecutionResult:
     results: List[ToolResultMessage] = []
-    tool_calls = [block for block in assistant_message.content if block.type == "toolCall"]
+    tool_calls = [block for block in assistant_message.content if block.type == "tool_call"]
     steering_messages: Optional[List[AgentMessage]] = None
 
     for index, tool_call in enumerate(tool_calls):

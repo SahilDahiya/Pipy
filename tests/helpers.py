@@ -31,4 +31,4 @@ def create_user_message(text: str) -> UserMessage:
 
 
 def identity_converter(messages: List[Message]) -> List[Message]:
-    return [m for m in messages if m.role in {"user", "assistant", "toolResult"}]
+    return [m for m in messages if m.role in {"user", "assistant", "tool_result"}]

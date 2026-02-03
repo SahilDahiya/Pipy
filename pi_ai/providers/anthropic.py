@@ -564,7 +564,7 @@ def _convert_messages(
                         )
                     else:
                         blocks.append({"type": "text", "text": sanitize_surrogates(block.thinking)})
-                elif block.type == "toolCall":
+                elif block.type == "tool_call":
                     blocks.append(
                         {
                             "type": "tool_use",
@@ -575,9 +575,9 @@ def _convert_messages(
                     )
             if blocks:
                 params.append({"role": "assistant", "content": blocks})
-        elif msg.role == "toolResult":
+        elif msg.role == "tool_result":
             tool_results: List[Dict[str, Any]] = []
-            while i < len(transformed_messages) and transformed_messages[i].role == "toolResult":
+            while i < len(transformed_messages) and transformed_messages[i].role == "tool_result":
                 tool_msg = transformed_messages[i]
                 tool_results.append(
                     {
@@ -633,7 +633,7 @@ def _map_stop_reason(reason: str) -> StopReason:
     if reason == "max_tokens":
         return "length"
     if reason == "tool_use":
-        return "toolUse"
+        return "tool_use"
     if reason in {"refusal", "sensitive"}:
         return "error"
     return "stop"

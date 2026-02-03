@@ -21,7 +21,7 @@ def transform_messages(
             transformed.append(msg)
             continue
 
-        if msg.role == "toolResult":
+        if msg.role == "tool_result":
             tool_call_id = msg.tool_call_id
             normalized = tool_call_id_map.get(tool_call_id)
             if normalized and normalized != tool_call_id:
@@ -68,7 +68,7 @@ def transform_messages(
                         normalized_content.append(TextContent(text=block.text))
                     continue
 
-                if block.type == "toolCall":
+                if block.type == "tool_call":
                     tool_call = block
                     if not is_same_model and tool_call.thought_signature:
                         tool_call = ToolCall(
@@ -134,13 +134,13 @@ def transform_messages(
             if msg.stop_reason in {"error", "aborted"}:
                 continue
 
-            tool_calls = [block for block in msg.content if block.type == "toolCall"]
+            tool_calls = [block for block in msg.content if block.type == "tool_call"]
             if tool_calls:
                 pending_tool_calls = tool_calls
                 existing_tool_result_ids = set()
 
             result.append(msg)
-        elif msg.role == "toolResult":
+        elif msg.role == "tool_result":
             existing_tool_result_ids.add(msg.tool_call_id)
             result.append(msg)
         elif msg.role == "user":

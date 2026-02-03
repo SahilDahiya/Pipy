@@ -43,10 +43,10 @@ def _normalize_mistral_tool_id(tool_id: str) -> str:
 
 def _has_tool_history(messages: List[Message]) -> bool:
     for msg in messages:
-        if msg.role == "toolResult":
+        if msg.role == "tool_result":
             return True
         if msg.role == "assistant":
-            if any(block.type == "toolCall" for block in msg.content):
+            if any(block.type == "tool_call" for block in msg.content):
                 return True
     return False
 
@@ -126,7 +126,7 @@ def stream_openai_completions(
                                     "partial": output,
                                 }
                             )
-                        elif block.type == "toolCall":
+                        elif block.type == "tool_call":
                             stream.push(
                                 {
                                     "type": "toolcall_end",
@@ -238,7 +238,7 @@ def stream_openai_completions(
                             tool_name = (tool_call.get("function") or {}).get("name") or ""
                             if (
                                 not current_block
-                                or current_block.type != "toolCall"
+                                or current_block.type != "tool_call"
                                 or (tool_id and current_block.id != tool_id)
                             ):
                                 finish_block(current_block)
@@ -253,7 +253,7 @@ def stream_openai_completions(
                                     }
                                 )
 
-                            if current_block.type == "toolCall":
+                            if current_block.type == "tool_call":
                                 if tool_id:
                                     current_block.id = tool_id
                                 if tool_name:
@@ -281,7 +281,7 @@ def stream_openai_completions(
                                     and detail.get("data")
                                 ):
                                     for block in output.content:
-                                        if block.type == "toolCall" and block.id == detail["id"]:
+                                        if block.type == "tool_call" and block.id == detail["id"]:
                                             block.thought_signature = json.dumps(detail)
 
                     finish_block(current_block)
@@ -358,7 +358,7 @@ def _build_headers(
         for msg in messages:
             if msg.role == "user" and isinstance(msg.content, list):
                 has_images = any(block.type == "image" for block in msg.content)
-            if msg.role == "toolResult" and isinstance(msg.content, list):
+            if msg.role == "tool_result" and isinstance(msg.content, list):
                 has_images = any(block.type == "image" for block in msg.content)
             if has_images:
                 break
@@ -468,7 +468,7 @@ def _convert_messages(
     i = 0
     while i < len(transformed_messages):
         msg = transformed_messages[i]
-        if compat.requires_assistant_after_tool_result and last_role == "toolResult" and msg.role == "user":
+        if compat.requires_assistant_after_tool_result and last_role == "tool_result" and msg.role == "user":
             params.append({"role": "assistant", "content": "I have processed the tool results."})
         if msg.role == "user":
             if isinstance(msg.content, str):
@@ -525,7 +525,7 @@ def _convert_messages(
                             "\n".join(b.thinking for b in thinking_blocks)
                         )
 
-            tool_calls = [b for b in msg.content if b.type == "toolCall"]
+            tool_calls = [b for b in msg.content if b.type == "tool_call"]
             if tool_calls:
                 assistant_msg["tool_calls"] = [
                     {
@@ -560,13 +560,13 @@ def _convert_messages(
                 continue
 
             params.append(assistant_msg)
-        elif msg.role == "toolResult":
+        elif msg.role == "tool_result":
             image_blocks: List[Dict[str, Any]] = []
             j = i
 
-            while j < len(transformed_messages) and transformed_messages[j].role == "toolResult":
+            while j < len(transformed_messages) and transformed_messages[j].role == "tool_result":
                 tool_msg_entry = transformed_messages[j]
-                if tool_msg_entry.role != "toolResult":
+                if tool_msg_entry.role != "tool_result":
                     break
                 text_result = "\n".join(
                     block.text for block in tool_msg_entry.content if block.type == "text"
@@ -608,7 +608,7 @@ def _convert_messages(
                 )
                 last_role = "user"
             else:
-                last_role = "toolResult"
+                last_role = "tool_result"
             i = j
             continue
 
@@ -640,7 +640,7 @@ def _map_stop_reason(reason: Optional[str]) -> StopReason:
     if reason == "length":
         return "length"
     if reason in {"function_call", "tool_calls"}:
-        return "toolUse"
+        return "tool_use"
     if reason == "content_filter":
         return "error"
     return "error"

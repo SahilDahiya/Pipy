@@ -7,7 +7,7 @@ from tests.helpers import create_assistant_message, create_model, create_user_me
 def test_inserts_tool_result_for_orphan_tool_call():
     assistant = create_assistant_message(
         [ToolCall(id="tool-1", name="echo", arguments={"value": "hi"})],
-        stop_reason="toolUse",
+        stop_reason="tool_use",
     )
     user = create_user_message("follow up")
 
@@ -16,14 +16,14 @@ def test_inserts_tool_result_for_orphan_tool_call():
 
     assert len(transformed) == 3
     assert transformed[0].role == "assistant"
-    assert transformed[1].role == "toolResult"
+    assert transformed[1].role == "tool_result"
     assert transformed[2].role == "user"
 
 
 def test_tool_call_id_normalization():
     assistant = create_assistant_message(
         [ToolCall(id="orig", name="echo", arguments={"value": "hi"})],
-        stop_reason="toolUse",
+        stop_reason="tool_use",
     )
     tool_result = ToolResultMessage(
         tool_call_id="orig",
@@ -57,5 +57,5 @@ def test_cross_provider_thinking_conversion():
     other_model.api = "anthropic-messages"
 
     transformed = transform_messages([assistant], other_model)
-    tool_call = next(block for block in transformed[0].content if block.type == "toolCall")
+    tool_call = next(block for block in transformed[0].content if block.type == "tool_call")
     assert tool_call.thought_signature is None

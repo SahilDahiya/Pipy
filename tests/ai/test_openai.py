@@ -39,7 +39,7 @@ def test_openai_batches_tool_result_images():
             ToolCall(id="tool-1", name="read", arguments={"path": "img-1.png"}),
             ToolCall(id="tool-2", name="read", arguments={"path": "img-2.png"}),
         ],
-        stop_reason="toolUse",
+        stop_reason="tool_use",
     )
     tool_result_one = ToolResultMessage(
         tool_call_id="tool-1",
@@ -74,7 +74,7 @@ def test_openai_batches_tool_result_images():
 def test_openai_adds_empty_tools_when_history_present():
     model = create_openai_model("gpt-4o-mini", provider="openai")
     tool_call = ToolCall(id="tool-1", name="echo", arguments={"value": "hi"})
-    assistant = create_assistant_message([tool_call], stop_reason="toolUse")
+    assistant = create_assistant_message([tool_call], stop_reason="tool_use")
     ctx = Context(system_prompt=None, messages=[assistant], tools=None)
     params = openai_provider._build_params(model, ctx, None)
     assert params["tools"] == []
@@ -95,7 +95,7 @@ def test_openai_sanitizes_surrogates():
 def test_openai_normalizes_pipe_tool_call_ids():
     model = create_openai_model("gpt-4o-mini", provider="openai")
     tool_call = ToolCall(id="call_abc|long+id==", name="echo", arguments={"value": "hi"})
-    assistant = create_assistant_message([tool_call], stop_reason="toolUse")
+    assistant = create_assistant_message([tool_call], stop_reason="tool_use")
     tool_result = ToolResultMessage(
         tool_call_id="call_abc|long+id==",
         tool_name="echo",

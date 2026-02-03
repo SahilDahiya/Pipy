@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 Api = Literal["openai-completions", "anthropic-messages"]
-StopReason = Literal["stop", "length", "toolUse", "error", "aborted"]
+StopReason = Literal["stop", "length", "tool_use", "error", "aborted"]
 CacheRetention = Literal["none", "short", "long"]
 
 
@@ -106,7 +106,7 @@ class ThinkingContent(BaseModel):
 class ToolCall(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["toolCall"] = "toolCall"
+    type: Literal["tool_call"] = "tool_call"
     id: str
     name: str
     arguments: Dict[str, Any] = Field(default_factory=dict)
@@ -150,7 +150,7 @@ class AssistantMessage(BaseModel):
 class ToolResultMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    role: Literal["toolResult"] = "toolResult"
+    role: Literal["tool_result"] = "tool_result"
     tool_call_id: str
     tool_name: str
     content: List[UserContentBlock] = Field(default_factory=list)

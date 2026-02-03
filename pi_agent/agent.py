@@ -41,7 +41,7 @@ def _default_convert_to_llm(messages: List[AgentMessage]) -> List[Message]:
     filtered: List[Message] = []
     for message in messages:
         role = _get_role(message)
-        if role in {"user", "assistant", "toolResult"}:
+        if role in {"user", "assistant", "tool_result"}:
             filtered.append(message)  # type: ignore[list-item]
     return filtered
 

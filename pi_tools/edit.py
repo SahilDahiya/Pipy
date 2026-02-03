@@ -26,10 +26,10 @@ EDIT_SCHEMA: Dict[str, object] = {
     "type": "object",
     "properties": {
         "path": {"type": "string", "description": "Path to the file to edit (relative or absolute)"},
-        "oldText": {"type": "string", "description": "Exact text to find and replace (must match exactly)"},
-        "newText": {"type": "string", "description": "New text to replace the old text with"},
+        "old_text": {"type": "string", "description": "Exact text to find and replace (must match exactly)"},
+        "new_text": {"type": "string", "description": "New text to replace the old text with"},
     },
-    "required": ["path", "oldText", "newText"],
+    "required": ["path", "old_text", "new_text"],
 }
 
 
@@ -84,8 +84,8 @@ def create_edit_tool(cwd: str, options: Optional[EditToolOptions] = None) -> Too
             raise RuntimeError("Operation aborted")
 
         path = str(params.get("path"))
-        old_text = str(params.get("oldText", ""))
-        new_text = str(params.get("newText", ""))
+        old_text = str(params.get("old_text") or params.get("oldText") or "")
+        new_text = str(params.get("new_text") or params.get("newText") or "")
 
         absolute_path = resolve_to_cwd(path, cwd)
         try:
@@ -149,7 +149,7 @@ def create_edit_tool(cwd: str, options: Optional[EditToolOptions] = None) -> Too
         name="edit",
         label="edit",
         description=(
-            "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). "
+            "Edit a file by replacing exact text. The old_text must match exactly (including whitespace). "
             "Use this for precise, surgical edits."
         ),
         parameters=EDIT_SCHEMA,

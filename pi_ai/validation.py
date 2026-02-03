@@ -39,6 +39,24 @@ def _schema_to_type(schema: Dict[str, Any]) -> type:
     return Any
 
 
+def _snake_to_camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(part.capitalize() for part in parts[1:])
+
+
+def _normalize_arguments(schema: Dict[str, Any], args: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(args)
+    properties = schema.get("properties", {})
+    for prop in properties.keys():
+        if prop in normalized:
+            continue
+        if "_" in prop:
+            camel = _snake_to_camel(prop)
+            if camel in normalized:
+                normalized[prop] = normalized[camel]
+    return normalized
+
+
 def validate_tool_arguments(tools: List[Tool], tool_call: ToolCall) -> Dict[str, Any]:
     tool = next((t for t in tools if t.name == tool_call.name), None)
     if tool is None:
@@ -46,7 +64,8 @@ def validate_tool_arguments(tools: List[Tool], tool_call: ToolCall) -> Dict[str,
 
     model = _build_model_from_schema(tool)
     try:
-        validated = model(**tool_call.arguments)
+        normalized_args = _normalize_arguments(tool.parameters, tool_call.arguments)
+        validated = model(**normalized_args)
     except ValidationError as exc:
         raise ValueError(str(exc)) from exc
 

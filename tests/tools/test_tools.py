@@ -220,7 +220,7 @@ async def test_edit_tool_replaces_text(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-call-12",
-        {"path": str(test_file), "oldText": "world", "newText": "testing"},
+        {"path": str(test_file), "old_text": "world", "new_text": "testing"},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -237,7 +237,7 @@ async def test_edit_tool_fails_when_text_not_found(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as excinfo:
         await edit.execute(
             "test-call-13",
-            {"path": str(test_file), "oldText": "nonexistent", "newText": "testing"},
+            {"path": str(test_file), "old_text": "nonexistent", "new_text": "testing"},
         )
     assert "Could not find the exact text" in str(excinfo.value)
 
@@ -251,7 +251,7 @@ async def test_edit_tool_fails_when_multiple_matches(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as excinfo:
         await edit.execute(
             "test-call-14",
-            {"path": str(test_file), "oldText": "foo", "newText": "bar"},
+            {"path": str(test_file), "old_text": "foo", "new_text": "bar"},
         )
     assert "Found 3 occurrences" in str(excinfo.value)
 

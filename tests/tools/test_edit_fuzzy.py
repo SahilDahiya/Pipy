@@ -20,7 +20,7 @@ async def test_edit_matches_trailing_whitespace(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-fuzzy-1",
-        {"path": str(test_file), "oldText": "line one\nline two\n", "newText": "replaced\n"},
+        {"path": str(test_file), "old_text": "line one\nline two\n", "new_text": "replaced\n"},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -35,7 +35,7 @@ async def test_edit_matches_smart_single_quotes(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-fuzzy-2",
-        {"path": str(test_file), "oldText": "console.log('hello');", "newText": "console.log('world');"},
+        {"path": str(test_file), "old_text": "console.log('hello');", "new_text": "console.log('world');"},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -50,7 +50,7 @@ async def test_edit_matches_smart_double_quotes(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-fuzzy-3",
-        {"path": str(test_file), "oldText": 'const msg = "Hello World";', "newText": 'const msg = "Goodbye";'},
+        {"path": str(test_file), "old_text": 'const msg = "Hello World";', "new_text": 'const msg = "Goodbye";'},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -67,8 +67,8 @@ async def test_edit_matches_unicode_dashes(tmp_path: Path) -> None:
         "test-fuzzy-4",
         {
             "path": str(test_file),
-            "oldText": "range: 1-5\nbreak-here",
-            "newText": "range: 10-50\nbreak--here",
+            "old_text": "range: 1-5\nbreak-here",
+            "new_text": "range: 10-50\nbreak--here",
         },
     )
 
@@ -85,7 +85,7 @@ async def test_edit_matches_nbsp(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-fuzzy-5",
-        {"path": str(test_file), "oldText": "hello world", "newText": "hello universe"},
+        {"path": str(test_file), "old_text": "hello world", "new_text": "hello universe"},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -100,7 +100,7 @@ async def test_edit_prefers_exact_match(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-fuzzy-6",
-        {"path": str(test_file), "oldText": "const x = 'exact';", "newText": "const x = 'changed';"},
+        {"path": str(test_file), "old_text": "const x = 'exact';", "new_text": "const x = 'changed';"},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -116,7 +116,7 @@ async def test_edit_fails_when_no_match(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as excinfo:
         await edit.execute(
             "test-fuzzy-7",
-            {"path": str(test_file), "oldText": "this does not exist", "newText": "replacement"},
+            {"path": str(test_file), "old_text": "this does not exist", "new_text": "replacement"},
         )
     assert "Could not find the exact text" in str(excinfo.value)
 
@@ -130,7 +130,7 @@ async def test_edit_detects_fuzzy_duplicates(tmp_path: Path) -> None:
     with pytest.raises(ValueError) as excinfo:
         await edit.execute(
             "test-fuzzy-8",
-            {"path": str(test_file), "oldText": "hello world", "newText": "replaced"},
+            {"path": str(test_file), "old_text": "hello world", "new_text": "replaced"},
         )
     assert "Found 2 occurrences" in str(excinfo.value)
 
@@ -143,7 +143,7 @@ async def test_edit_matches_lf_text_against_crlf(tmp_path: Path) -> None:
 
     result = await edit.execute(
         "test-crlf-1",
-        {"path": str(test_file), "oldText": "line two\n", "newText": "replaced line\n"},
+        {"path": str(test_file), "old_text": "line two\n", "new_text": "replaced line\n"},
     )
 
     assert "Successfully replaced" in get_text_output(result)
@@ -157,7 +157,7 @@ async def test_edit_preserves_crlf_line_endings(tmp_path: Path) -> None:
 
     await edit.execute(
         "test-crlf-2",
-        {"path": str(test_file), "oldText": "second\n", "newText": "REPLACED\n"},
+        {"path": str(test_file), "old_text": "second\n", "new_text": "REPLACED\n"},
     )
 
     assert test_file.read_bytes().decode("utf-8") == "first\r\nREPLACED\r\nthird\r\n"
@@ -171,7 +171,7 @@ async def test_edit_preserves_lf_line_endings(tmp_path: Path) -> None:
 
     await edit.execute(
         "test-lf-1",
-        {"path": str(test_file), "oldText": "second\n", "newText": "REPLACED\n"},
+        {"path": str(test_file), "old_text": "second\n", "new_text": "REPLACED\n"},
     )
 
     assert test_file.read_text(encoding="utf-8") == "first\nREPLACED\nthird\n"
@@ -186,7 +186,7 @@ async def test_edit_detects_duplicates_across_crlf_variants(tmp_path: Path) -> N
     with pytest.raises(ValueError) as excinfo:
         await edit.execute(
             "test-crlf-dup",
-            {"path": str(test_file), "oldText": "hello\nworld\n", "newText": "replaced\n"},
+            {"path": str(test_file), "old_text": "hello\nworld\n", "new_text": "replaced\n"},
         )
     assert "Found 2 occurrences" in str(excinfo.value)
 
@@ -199,7 +199,7 @@ async def test_edit_preserves_bom(tmp_path: Path) -> None:
 
     await edit.execute(
         "test-bom",
-        {"path": str(test_file), "oldText": "second\n", "newText": "REPLACED\n"},
+        {"path": str(test_file), "old_text": "second\n", "new_text": "REPLACED\n"},
     )
 
     assert test_file.read_bytes().decode("utf-8") == "\ufefffirst\r\nREPLACED\r\nthird\r\n"

@@ -9,7 +9,8 @@ from pi_ai.types import Context, Tool, ToolCall, UserMessage
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-4.1-nano")
+OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-5-nano")
+OPENAI_THINKING_MODEL_ID = os.getenv("PI_OPENAI_THINKING_MODEL", "gpt-5-mini")
 
 pytestmark = pytest.mark.skipif(
     not OPENAI_API_KEY, reason="OPENAI_API_KEY is required for OpenAI integration tests."
@@ -92,3 +93,25 @@ async def test_openai_tool_call_streaming():
     assert saw_end
     assert tool_calls
     assert tool_calls[0].name == "calculator"
+
+
+@pytest.mark.asyncio
+async def test_openai_reasoning_effort():
+    model = create_openai_model(OPENAI_THINKING_MODEL_ID, provider="openai", reasoning=True)
+    context = Context(
+        system_prompt="You are a helpful assistant.",
+        messages=[UserMessage(content="Explain 2 + 2 in one sentence.")],
+    )
+    response = await complete(
+        model,
+        context,
+        OpenAICompletionsOptions(
+            api_key=OPENAI_API_KEY,
+            reasoning_effort="low",
+            max_tokens=256,
+        ),
+    )
+    assert response.role == "assistant"
+    has_text = any(block.type == "text" and block.text.strip() for block in response.content)
+    has_thinking = any(block.type == "thinking" and block.thinking.strip() for block in response.content)
+    assert has_text or has_thinking

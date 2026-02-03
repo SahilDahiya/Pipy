@@ -22,6 +22,7 @@ If tests are missing for new behavior, add them before expanding APIs.
 - Tests load `.env` automatically (via `python-dotenv`).
 - Set `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` for integration tests.
 - Override models with `PI_OPENAI_TEST_MODEL` / `PI_ANTHROPIC_TEST_MODEL`.
-- Default integration models: `gpt-4.1-nano` (OpenAI) and `claude-3-haiku-20240307` (Anthropic).
+- Default integration models: `gpt-5-nano` (OpenAI) and `claude-3-haiku-20240307` (Anthropic).
+- Optional OpenAI reasoning test: set `PI_OPENAI_THINKING_MODEL` (defaults to `gpt-5-mini`).
 - Thinking-stream test is opt-in: set `PI_ANTHROPIC_REQUIRE_THINKING=1` and
   `PI_ANTHROPIC_THINKING_MODEL` (default `claude-3-7-sonnet-20250219`).

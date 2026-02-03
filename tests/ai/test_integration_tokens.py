@@ -12,7 +12,7 @@ from pi_ai.types import Context, UserMessage
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-4.1-nano")
+OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-5-nano")
 ANTHROPIC_MODEL_ID = os.getenv("PI_ANTHROPIC_TEST_MODEL", "claude-3-haiku-20240307")
 
 

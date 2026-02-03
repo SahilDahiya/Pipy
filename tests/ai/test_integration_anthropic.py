@@ -122,7 +122,7 @@ async def test_anthropic_thinking_streaming():
         api_key=ANTHROPIC_API_KEY,
         thinking_enabled=True,
         thinking_budget_tokens=1024,
-        temperature=0,
+        max_tokens=2048,
     )
 
     stream_response = stream(model, context, options)

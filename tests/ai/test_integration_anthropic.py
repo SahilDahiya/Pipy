@@ -1,0 +1,128 @@
+import os
+
+import pytest
+
+from pi_ai.stream import complete, stream
+from pi_ai.models import create_anthropic_model
+from pi_ai.providers.anthropic import AnthropicOptions
+from pi_ai.types import Context, Tool, ToolCall, UserMessage
+
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+pytestmark = pytest.mark.skipif(
+    not ANTHROPIC_API_KEY, reason="ANTHROPIC_API_KEY is required for Anthropic integration tests."
+)
+
+
+def _calculator_tool() -> Tool:
+    return Tool(
+        name="calculator",
+        description="Perform basic arithmetic operations",
+        parameters={
+            "type": "object",
+            "properties": {
+                "a": {"type": "number", "description": "First number"},
+                "b": {"type": "number", "description": "Second number"},
+                "operation": {
+                    "type": "string",
+                    "enum": ["add", "subtract", "multiply", "divide"],
+                    "description": "Operation to perform",
+                },
+            },
+            "required": ["a", "b", "operation"],
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_anthropic_basic_text_generation():
+    model = create_anthropic_model("claude-sonnet-4-5", provider="anthropic")
+    context = Context(
+        system_prompt="You are a helpful assistant.",
+        messages=[UserMessage(content="Reply with exactly: hello test")],
+    )
+    response = await complete(
+        model,
+        context,
+        AnthropicOptions(api_key=ANTHROPIC_API_KEY, temperature=0),
+    )
+    assert response.role == "assistant"
+    assert response.content
+    text = "".join(block.text for block in response.content if block.type == "text")
+    assert "hello" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_anthropic_tool_call_streaming():
+    model = create_anthropic_model("claude-sonnet-4-5", provider="anthropic")
+    context = Context(
+        system_prompt="You are a helpful assistant that must use the calculator tool.",
+        messages=[
+            UserMessage(content="Calculate 15 + 27 using the calculator tool."),
+        ],
+        tools=[_calculator_tool()],
+    )
+
+    options = AnthropicOptions(
+        api_key=ANTHROPIC_API_KEY,
+        tool_choice={"type": "tool", "name": "calculator"},
+        temperature=0,
+    )
+
+    stream_response = stream(model, context, options)
+    saw_start = False
+    saw_delta = False
+    saw_end = False
+
+    async for event in stream_response:
+        if event["type"] == "toolcall_start":
+            saw_start = True
+        if event["type"] == "toolcall_delta":
+            saw_delta = True
+        if event["type"] == "toolcall_end":
+            saw_end = True
+
+    final_message = await stream_response.result()
+    tool_calls = [block for block in final_message.content if isinstance(block, ToolCall)]
+
+    assert saw_start
+    assert saw_delta
+    assert saw_end
+    assert tool_calls
+    assert tool_calls[0].name == "calculator"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_thinking_streaming():
+    model = create_anthropic_model("claude-sonnet-4-5", provider="anthropic")
+    context = Context(
+        system_prompt="You are a helpful assistant.",
+        messages=[
+            UserMessage(
+                content="Think step by step about 21 + 21, then answer with the sum only."
+            )
+        ],
+    )
+
+    options = AnthropicOptions(
+        api_key=ANTHROPIC_API_KEY,
+        thinking_enabled=True,
+        thinking_budget_tokens=1024,
+        temperature=0,
+    )
+
+    stream_response = stream(model, context, options)
+    saw_thinking = False
+    saw_text = False
+
+    async for event in stream_response:
+        if event["type"] == "thinking_delta":
+            saw_thinking = True
+        if event["type"] == "text_delta":
+            saw_text = True
+
+    final_message = await stream_response.result()
+    assert final_message.role == "assistant"
+    assert saw_text
+    assert saw_thinking

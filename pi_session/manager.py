@@ -82,6 +82,23 @@ def _extract_text_content(message: Dict[str, Any]) -> str:
     return ""
 
 
+def _coerce_message(message: Any) -> Any:
+    if isinstance(message, (UserMessage, AssistantMessage, ToolResultMessage)):
+        return message
+    if isinstance(message, dict):
+        role = message.get("role")
+        try:
+            if role == "user":
+                return UserMessage.model_validate(message)
+            if role == "assistant":
+                return AssistantMessage.model_validate(message)
+            if role == "toolResult":
+                return ToolResultMessage.model_validate(message)
+        except Exception:
+            return message
+    return message
+
+
 def _get_last_activity_time(entries: List[Dict[str, Any]]) -> Optional[int]:
     last_activity: Optional[int] = None
     for entry in entries:
@@ -605,7 +622,7 @@ def build_session_context(
 
     def append_message(entry: SessionEntryType) -> None:
         if isinstance(entry, SessionMessageEntry):
-            messages.append(entry.message)
+            messages.append(_coerce_message(entry.message))
         elif isinstance(entry, CustomMessageEntry):
             messages.append(
                 {

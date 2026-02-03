@@ -10,6 +10,22 @@ from pi_session import (
 from tests.session.helpers import assistant_msg, user_msg
 
 
+def get_role(message) -> str:
+    return message.role if hasattr(message, "role") else message["role"]
+
+
+def get_content(message):
+    return message.content if hasattr(message, "content") else message["content"]
+
+
+def get_first_text(message) -> str:
+    content = get_content(message)
+    if isinstance(content, str):
+        return content
+    first = content[0]
+    return first.text if hasattr(first, "text") else first["text"]
+
+
 def msg(entry_id: str, parent_id: str | None, role: str, text: str) -> SessionMessageEntry:
     message = user_msg(text) if role == "user" else assistant_msg(text)
     return SessionMessageEntry(type="message", id=entry_id, parentId=parent_id, timestamp="2025-01-01T00:00:00Z", message=message)
@@ -68,7 +84,7 @@ def test_build_context_trivial():
     entries = [msg("1", None, "user", "hello")]
     ctx = build_session_context(entries)
     assert len(ctx.messages) == 1
-    assert ctx.messages[0]["role"] == "user"
+    assert get_role(ctx.messages[0]) == "user"
 
 
 def test_build_context_simple_conversation():
@@ -79,7 +95,7 @@ def test_build_context_simple_conversation():
         msg("4", "3", "assistant", "great"),
     ]
     ctx = build_session_context(entries)
-    assert [m["role"] for m in ctx.messages] == ["user", "assistant", "user", "assistant"]
+    assert [get_role(m) for m in ctx.messages] == ["user", "assistant", "user", "assistant"]
 
 
 def test_build_context_tracks_thinking_and_model():
@@ -112,10 +128,10 @@ def test_build_context_with_compaction():
         msg("7", "6", "assistant", "response3"),
     ]
     ctx = build_session_context(entries)
-    assert ctx.messages[0]["role"] == "compactionSummary"
+    assert get_role(ctx.messages[0]) == "compactionSummary"
     assert "Summary" in ctx.messages[0]["summary"]
-    assert ctx.messages[1]["content"] == "second"
-    assert ctx.messages[2]["content"][0]["text"] == "response2"
+    assert get_content(ctx.messages[1]) == "second"
+    assert get_first_text(ctx.messages[2]) == "response2"
 
 
 def test_build_context_multiple_compactions():
@@ -141,10 +157,10 @@ def test_build_context_branches_and_branch_summary():
     ]
 
     ctx_a = build_session_context(entries, "3")
-    assert ctx_a.messages[-1]["content"] == "branch A"
+    assert get_content(ctx_a.messages[-1]) == "branch A"
 
     ctx_b = build_session_context(entries, "4")
-    assert ctx_b.messages[-1]["content"] == "branch B"
+    assert get_content(ctx_b.messages[-1]) == "branch B"
 
     entries = [
         msg("1", None, "user", "start"),
@@ -155,5 +171,5 @@ def test_build_context_branches_and_branch_summary():
     ]
 
     ctx = build_session_context(entries)
-    assert ctx.messages[2]["role"] == "branchSummary"
+    assert get_role(ctx.messages[2]) == "branchSummary"
     assert "Summary" in ctx.messages[2]["summary"]

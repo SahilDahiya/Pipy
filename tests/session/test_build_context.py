@@ -28,18 +28,24 @@ def get_first_text(message) -> str:
 
 def msg(entry_id: str, parent_id: str | None, role: str, text: str) -> SessionMessageEntry:
     message = user_msg(text) if role == "user" else assistant_msg(text)
-    return SessionMessageEntry(type="message", id=entry_id, parentId=parent_id, timestamp="2025-01-01T00:00:00Z", message=message)
+    return SessionMessageEntry(
+        type="message",
+        id=entry_id,
+        parent_id=parent_id,
+        timestamp="2025-01-01T00:00:00Z",
+        message=message,
+    )
 
 
 def compaction(entry_id: str, parent_id: str | None, summary: str, first_kept: str) -> CompactionEntry:
     return CompactionEntry(
         type="compaction",
         id=entry_id,
-        parentId=parent_id,
+        parent_id=parent_id,
         timestamp="2025-01-01T00:00:00Z",
         summary=summary,
-        firstKeptEntryId=first_kept,
-        tokensBefore=1000,
+        first_kept_entry_id=first_kept,
+        tokens_before=1000,
     )
 
 
@@ -47,10 +53,10 @@ def branch_summary(entry_id: str, parent_id: str | None, summary: str, from_id: 
     return BranchSummaryEntry(
         type="branch_summary",
         id=entry_id,
-        parentId=parent_id,
+        parent_id=parent_id,
         timestamp="2025-01-01T00:00:00Z",
         summary=summary,
-        fromId=from_id,
+        from_id=from_id,
     )
 
 
@@ -58,9 +64,9 @@ def thinking(entry_id: str, parent_id: str | None, level: str) -> ThinkingLevelC
     return ThinkingLevelChangeEntry(
         type="thinking_level_change",
         id=entry_id,
-        parentId=parent_id,
+        parent_id=parent_id,
         timestamp="2025-01-01T00:00:00Z",
-        thinkingLevel=level,
+        thinking_level=level,
     )
 
 
@@ -68,17 +74,17 @@ def model_change(entry_id: str, parent_id: str | None, provider: str, model_id: 
     return ModelChangeEntry(
         type="model_change",
         id=entry_id,
-        parentId=parent_id,
+        parent_id=parent_id,
         timestamp="2025-01-01T00:00:00Z",
         provider=provider,
-        modelId=model_id,
+        model_id=model_id,
     )
 
 
 def test_build_context_trivial():
     ctx = build_session_context([])
     assert ctx.messages == []
-    assert ctx.thinkingLevel == "off"
+    assert ctx.thinking_level == "off"
     assert ctx.model is None
 
     entries = [msg("1", None, "user", "hello")]
@@ -105,8 +111,8 @@ def test_build_context_tracks_thinking_and_model():
         msg("3", "2", "assistant", "thinking"),
     ]
     ctx = build_session_context(entries)
-    assert ctx.thinkingLevel == "high"
-    assert ctx.model == {"provider": "anthropic", "modelId": "claude-test"}
+    assert ctx.thinking_level == "high"
+    assert ctx.model == {"provider": "anthropic", "model_id": "claude-test"}
 
     entries = [
         msg("1", None, "user", "hello"),
@@ -114,7 +120,7 @@ def test_build_context_tracks_thinking_and_model():
         msg("3", "2", "assistant", "hi"),
     ]
     ctx = build_session_context(entries)
-    assert ctx.model == {"provider": "anthropic", "modelId": "claude-test"}
+    assert ctx.model == {"provider": "anthropic", "model_id": "claude-test"}
 
 
 def test_build_context_with_compaction():

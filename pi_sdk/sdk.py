@@ -94,11 +94,11 @@ def create_agent(
         context = session_manager.build_session_context()
         if context.messages:
             agent.replace_messages(context.messages)
-        if thinking_level is None and context.thinkingLevel:
-            agent.set_thinking_level(context.thinkingLevel)
+        if thinking_level is None and context.thinking_level:
+            agent.set_thinking_level(context.thinking_level)
         if model is None and context.model:
             try:
-                restored = get_model(context.model.get("provider", ""), context.model.get("modelId", ""))
+                restored = get_model(context.model.get("provider", ""), context.model.get("model_id", ""))
             except Exception:
                 restored = None
             if restored:

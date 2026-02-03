@@ -86,17 +86,65 @@ def _coerce_message(message: Any) -> Any:
     if isinstance(message, (UserMessage, AssistantMessage, ToolResultMessage)):
         return message
     if isinstance(message, dict):
-        role = message.get("role")
+        normalized = _normalize_message_dict(message)
+        role = normalized.get("role")
         try:
             if role == "user":
-                return UserMessage.model_validate(message)
+                return UserMessage.model_validate(normalized)
             if role == "assistant":
-                return AssistantMessage.model_validate(message)
+                return AssistantMessage.model_validate(normalized)
             if role == "toolResult":
-                return ToolResultMessage.model_validate(message)
+                return ToolResultMessage.model_validate(normalized)
         except Exception:
             return message
     return message
+
+
+def _normalize_message_dict(message: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(message)
+    _rename_key(normalized, "stopReason", "stop_reason")
+    _rename_key(normalized, "errorMessage", "error_message")
+    _rename_key(normalized, "toolCallId", "tool_call_id")
+    _rename_key(normalized, "toolName", "tool_name")
+    _rename_key(normalized, "isError", "is_error")
+
+    usage = normalized.get("usage")
+    if isinstance(usage, dict):
+        normalized["usage"] = _normalize_usage_dict(usage)
+
+    content = normalized.get("content")
+    if isinstance(content, list):
+        normalized["content"] = [
+            _normalize_content_block(block) if isinstance(block, dict) else block for block in content
+        ]
+    return normalized
+
+
+def _normalize_usage_dict(usage: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(usage)
+    _rename_key(normalized, "cacheRead", "cache_read")
+    _rename_key(normalized, "cacheWrite", "cache_write")
+    _rename_key(normalized, "totalTokens", "total_tokens")
+    cost = normalized.get("cost")
+    if isinstance(cost, dict):
+        cost_normalized = dict(cost)
+        _rename_key(cost_normalized, "cacheRead", "cache_read")
+        _rename_key(cost_normalized, "cacheWrite", "cache_write")
+        normalized["cost"] = cost_normalized
+    return normalized
+
+
+def _normalize_content_block(block: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(block)
+    _rename_key(normalized, "mimeType", "mime_type")
+    _rename_key(normalized, "thinkingSignature", "thinking_signature")
+    _rename_key(normalized, "thoughtSignature", "thought_signature")
+    return normalized
+
+
+def _rename_key(data: Dict[str, Any], old: str, new: str) -> None:
+    if old in data and new not in data:
+        data[new] = data.pop(old)
 
 
 def _get_last_activity_time(entries: List[Dict[str, Any]]) -> Optional[int]:
@@ -192,7 +240,7 @@ def build_session_info(file_path: str) -> Optional[SessionInfo]:
             first_message = text_content
 
     cwd = header.get("cwd") if isinstance(header.get("cwd"), str) else ""
-    parent_session_path = header.get("parentSession")
+    parent_session_path = header.get("parentSession") or header.get("parent_session")
     header_time = header.get("timestamp")
     created = _parse_iso_timestamp(header_time) if isinstance(header_time, str) else None
     if created is None:
@@ -247,7 +295,7 @@ class SessionHeader:
     timestamp: str
     cwd: str
     version: int = CURRENT_SESSION_VERSION
-    parentSession: Optional[str] = None
+    parent_session: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = {
@@ -257,8 +305,8 @@ class SessionHeader:
             "cwd": self.cwd,
             "version": self.version,
         }
-        if self.parentSession:
-            data["parentSession"] = self.parentSession
+        if self.parent_session:
+            data["parentSession"] = self.parent_session
         return data
 
 
@@ -266,14 +314,14 @@ class SessionHeader:
 class SessionEntry:
     type: str
     id: str
-    parentId: Optional[str]
+    parent_id: Optional[str]
     timestamp: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "type": self.type,
             "id": self.id,
-            "parentId": self.parentId,
+            "parentId": self.parent_id,
             "timestamp": self.timestamp,
         }
 
@@ -290,75 +338,75 @@ class SessionMessageEntry(SessionEntry):
 
 @dataclass
 class ThinkingLevelChangeEntry(SessionEntry):
-    thinkingLevel: str
+    thinking_level: str
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["thinkingLevel"] = self.thinkingLevel
+        data["thinkingLevel"] = self.thinking_level
         return data
 
 
 @dataclass
 class ModelChangeEntry(SessionEntry):
     provider: str
-    modelId: str
+    model_id: str
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data["provider"] = self.provider
-        data["modelId"] = self.modelId
+        data["modelId"] = self.model_id
         return data
 
 
 @dataclass
 class CompactionEntry(SessionEntry):
     summary: str
-    firstKeptEntryId: str
-    tokensBefore: int
+    first_kept_entry_id: str
+    tokens_before: int
     details: Optional[Dict[str, Any]] = None
-    fromHook: Optional[bool] = None
+    from_hook: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data.update(
             {
                 "summary": self.summary,
-                "firstKeptEntryId": self.firstKeptEntryId,
-                "tokensBefore": self.tokensBefore,
+                "firstKeptEntryId": self.first_kept_entry_id,
+                "tokensBefore": self.tokens_before,
             }
         )
         if self.details is not None:
             data["details"] = self.details
-        if self.fromHook is not None:
-            data["fromHook"] = self.fromHook
+        if self.from_hook is not None:
+            data["fromHook"] = self.from_hook
         return data
 
 
 @dataclass
 class BranchSummaryEntry(SessionEntry):
-    fromId: str
+    from_id: str
     summary: str
     details: Optional[Dict[str, Any]] = None
-    fromHook: Optional[bool] = None
+    from_hook: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({"fromId": self.fromId, "summary": self.summary})
+        data.update({"fromId": self.from_id, "summary": self.summary})
         if self.details is not None:
             data["details"] = self.details
-        if self.fromHook is not None:
-            data["fromHook"] = self.fromHook
+        if self.from_hook is not None:
+            data["fromHook"] = self.from_hook
         return data
 
 
 @dataclass
 class CustomEntry(SessionEntry):
-    customType: str
+    custom_type: str
     data: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["customType"] = self.customType
+        data["customType"] = self.custom_type
         if self.data is not None:
             data["data"] = self.data
         return data
@@ -366,14 +414,14 @@ class CustomEntry(SessionEntry):
 
 @dataclass
 class CustomMessageEntry(SessionEntry):
-    customType: str
+    custom_type: str
     content: Any
     display: bool
     details: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({"customType": self.customType, "content": self.content, "display": self.display})
+        data.update({"customType": self.custom_type, "content": self.content, "display": self.display})
         if self.details is not None:
             data["details"] = self.details
         return data
@@ -381,12 +429,12 @@ class CustomMessageEntry(SessionEntry):
 
 @dataclass
 class LabelEntry(SessionEntry):
-    targetId: str
+    target_id: str
     label: Optional[str]
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["targetId"] = self.targetId
+        data["targetId"] = self.target_id
         if self.label is not None:
             data["label"] = self.label
         return data
@@ -443,56 +491,80 @@ class SessionTreeNode:
 @dataclass
 class SessionContext:
     messages: List[Any]
-    thinkingLevel: str
+    thinking_level: str
     model: Optional[Dict[str, str]]
 
 
 def _entry_from_dict(payload: Dict[str, Any]) -> SessionEntryType:
     entry_type = payload.get("type")
+    parent_id = payload.get("parentId")
+    if parent_id is None:
+        parent_id = payload.get("parent_id")
     base = {
         "type": entry_type,
         "id": payload.get("id"),
-        "parentId": payload.get("parentId"),
+        "parent_id": parent_id,
         "timestamp": payload.get("timestamp", _now_iso()),
     }
     if entry_type == "message":
         return SessionMessageEntry(**base, message=payload.get("message", {}))
     if entry_type == "thinking_level_change":
-        return ThinkingLevelChangeEntry(**base, thinkingLevel=payload.get("thinkingLevel", "off"))
+        return ThinkingLevelChangeEntry(
+            **base,
+            thinking_level=payload.get("thinkingLevel", payload.get("thinking_level", "off")),
+        )
     if entry_type == "model_change":
-        return ModelChangeEntry(**base, provider=payload.get("provider", ""), modelId=payload.get("modelId", ""))
+        return ModelChangeEntry(
+            **base,
+            provider=payload.get("provider", ""),
+            model_id=payload.get("modelId", payload.get("model_id", "")),
+        )
     if entry_type == "compaction":
         return CompactionEntry(
             **base,
             summary=payload.get("summary", ""),
-            firstKeptEntryId=payload.get("firstKeptEntryId", ""),
-            tokensBefore=payload.get("tokensBefore", 0),
+            first_kept_entry_id=payload.get("firstKeptEntryId", payload.get("first_kept_entry_id", "")),
+            tokens_before=payload.get("tokensBefore", payload.get("tokens_before", 0)),
             details=payload.get("details"),
-            fromHook=payload.get("fromHook"),
+            from_hook=payload.get("fromHook", payload.get("from_hook")),
         )
     if entry_type == "branch_summary":
         return BranchSummaryEntry(
             **base,
-            fromId=payload.get("fromId", ""),
+            from_id=payload.get("fromId", payload.get("from_id", "")),
             summary=payload.get("summary", ""),
             details=payload.get("details"),
-            fromHook=payload.get("fromHook"),
+            from_hook=payload.get("fromHook", payload.get("from_hook")),
         )
     if entry_type == "custom":
-        return CustomEntry(**base, customType=payload.get("customType", ""), data=payload.get("data"))
+        return CustomEntry(
+            **base,
+            custom_type=payload.get("customType", payload.get("custom_type", "")),
+            data=payload.get("data"),
+        )
     if entry_type == "custom_message":
         return CustomMessageEntry(
             **base,
-            customType=payload.get("customType", ""),
+            custom_type=payload.get("customType", payload.get("custom_type", "")),
             content=payload.get("content"),
             display=bool(payload.get("display", False)),
             details=payload.get("details"),
         )
     if entry_type == "label":
-        return LabelEntry(**base, targetId=payload.get("targetId", ""), label=payload.get("label"))
+        return LabelEntry(
+            **base,
+            target_id=payload.get("targetId", payload.get("target_id", "")),
+            label=payload.get("label"),
+        )
     if entry_type == "session_info":
         return SessionInfoEntry(**base, name=payload.get("name"))
     return SessionMessageEntry(**base, message=payload.get("message", {}))
+
+
+def _normalize_session_header(header: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(header)
+    _rename_key(normalized, "parentSession", "parent_session")
+    return normalized
 
 
 def load_entries_from_file(path: str) -> List[Dict[str, Any]]:
@@ -594,13 +666,13 @@ def build_session_context(
         leaf = by_id.get(leaf_id)
 
     if leaf is None:
-        return SessionContext(messages=[], thinkingLevel="off", model=None)
+        return SessionContext(messages=[], thinking_level="off", model=None)
 
     path: List[SessionEntryType] = []
     current = leaf
     while current:
         path.insert(0, current)
-        current = by_id.get(current.parentId) if current.parentId else None
+        current = by_id.get(current.parent_id) if current.parent_id else None
 
     thinking_level = "off"
     model: Optional[Dict[str, str]] = None
@@ -608,13 +680,20 @@ def build_session_context(
 
     for entry in path:
         if isinstance(entry, ThinkingLevelChangeEntry):
-            thinking_level = entry.thinkingLevel
+            thinking_level = entry.thinking_level
         elif isinstance(entry, ModelChangeEntry):
-            model = {"provider": entry.provider, "modelId": entry.modelId}
+            model = {"provider": entry.provider, "model_id": entry.model_id}
         elif isinstance(entry, SessionMessageEntry):
             msg = entry.message
-            if msg.get("role") == "assistant":
-                model = {"provider": msg.get("provider", ""), "modelId": msg.get("model", "")}
+            role = getattr(msg, "role", None) if not isinstance(msg, dict) else msg.get("role")
+            if role == "assistant":
+                provider = (
+                    msg.get("provider", "") if isinstance(msg, dict) else getattr(msg, "provider", "")
+                )
+                model_name = (
+                    msg.get("model", "") if isinstance(msg, dict) else getattr(msg, "model", "")
+                )
+                model = {"provider": provider, "model_id": model_name}
         elif isinstance(entry, CompactionEntry):
             compaction = entry
 
@@ -627,7 +706,7 @@ def build_session_context(
             messages.append(
                 {
                     "role": "custom",
-                    "customType": entry.customType,
+                    "custom_type": entry.custom_type,
                     "content": entry.content,
                     "display": entry.display,
                     "details": entry.details,
@@ -639,7 +718,7 @@ def build_session_context(
                 {
                     "role": "branchSummary",
                     "summary": entry.summary,
-                    "fromId": entry.fromId,
+                    "from_id": entry.from_id,
                     "timestamp": int(datetime.fromisoformat(entry.timestamp).timestamp() * 1000),
                 }
             )
@@ -649,7 +728,7 @@ def build_session_context(
             {
                 "role": "compactionSummary",
                 "summary": compaction.summary,
-                "tokensBefore": compaction.tokensBefore,
+                "tokens_before": compaction.tokens_before,
                 "timestamp": int(datetime.fromisoformat(compaction.timestamp).timestamp() * 1000),
             }
         )
@@ -658,7 +737,7 @@ def build_session_context(
         )
         found_first_kept = False
         for entry in path[:compaction_idx]:
-            if entry.id == compaction.firstKeptEntryId:
+            if entry.id == compaction.first_kept_entry_id:
                 found_first_kept = True
             if found_first_kept:
                 append_message(entry)
@@ -668,7 +747,7 @@ def build_session_context(
         for entry in path:
             append_message(entry)
 
-    return SessionContext(messages=messages, thinkingLevel=thinking_level, model=model)
+    return SessionContext(messages=messages, thinking_level=thinking_level, model=model)
 
 
 class SessionManager:
@@ -774,7 +853,9 @@ class SessionManager:
 
             header = next((e for e in entries if e.get("type") == "session"), None)
             self._session_id = header.get("id") if header else uuid4().hex
-            self._file_entries = [SessionHeader(**header)] if header else []
+            self._file_entries = (
+                [SessionHeader(**_normalize_session_header(header))] if header else []
+            )
             for entry in entries:
                 if entry.get("type") == "session":
                     continue
@@ -795,7 +876,7 @@ class SessionManager:
             timestamp=timestamp,
             cwd=self._cwd,
             version=CURRENT_SESSION_VERSION,
-            parentSession=parent_session,
+            parent_session=parent_session,
         )
         self._file_entries = [header]
         self._by_id.clear()
@@ -817,9 +898,9 @@ class SessionManager:
             self._leaf_id = entry.id
             if isinstance(entry, LabelEntry):
                 if entry.label is not None:
-                    self._labels_by_id[entry.targetId] = entry.label
+                    self._labels_by_id[entry.target_id] = entry.label
                 else:
-                    self._labels_by_id.pop(entry.targetId, None)
+                    self._labels_by_id.pop(entry.target_id, None)
 
     def _rewrite_file(self, entries: Optional[List[Dict[str, Any]]] = None) -> None:
         if not self._persist or not self._session_file:
@@ -846,9 +927,9 @@ class SessionManager:
         self._leaf_id = entry.id
         if isinstance(entry, LabelEntry):
             if entry.label is not None:
-                self._labels_by_id[entry.targetId] = entry.label
+                self._labels_by_id[entry.target_id] = entry.label
             else:
-                self._labels_by_id.pop(entry.targetId, None)
+                self._labels_by_id.pop(entry.target_id, None)
         self._persist_entry(entry)
 
     def is_persisted(self) -> bool:
@@ -887,7 +968,7 @@ class SessionManager:
         return self._by_id.get(self._leaf_id)
 
     def get_children(self, parent_id: str) -> List[SessionEntryType]:
-        return [entry for entry in self._by_id.values() if entry.parentId == parent_id]
+        return [entry for entry in self._by_id.values() if entry.parent_id == parent_id]
 
     def get_session_name(self) -> Optional[str]:
         entries = self.get_entries()
@@ -900,7 +981,7 @@ class SessionManager:
         entry = SessionMessageEntry(
             type="message",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
             message=message.model_dump() if hasattr(message, "model_dump") else message,
         )
@@ -911,9 +992,9 @@ class SessionManager:
         entry = ThinkingLevelChangeEntry(
             type="thinking_level_change",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
-            thinkingLevel=level,
+            thinking_level=level,
         )
         self._append_entry(entry)
         return entry.id
@@ -922,10 +1003,10 @@ class SessionManager:
         entry = ModelChangeEntry(
             type="model_change",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
             provider=provider,
-            modelId=model_id,
+            model_id=model_id,
         )
         self._append_entry(entry)
         return entry.id
@@ -941,13 +1022,13 @@ class SessionManager:
         entry = CompactionEntry(
             type="compaction",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
             summary=summary,
-            firstKeptEntryId=first_kept_entry_id,
-            tokensBefore=tokens_before,
+            first_kept_entry_id=first_kept_entry_id,
+            tokens_before=tokens_before,
             details=details,
-            fromHook=from_hook,
+            from_hook=from_hook,
         )
         self._append_entry(entry)
         return entry.id
@@ -962,12 +1043,12 @@ class SessionManager:
         entry = BranchSummaryEntry(
             type="branch_summary",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
-            fromId=from_id,
+            from_id=from_id,
             summary=summary,
             details=details,
-            fromHook=from_hook,
+            from_hook=from_hook,
         )
         self._append_entry(entry)
         return entry.id
@@ -976,9 +1057,9 @@ class SessionManager:
         entry = CustomEntry(
             type="custom",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
-            customType=custom_type,
+            custom_type=custom_type,
             data=data,
         )
         self._append_entry(entry)
@@ -994,9 +1075,9 @@ class SessionManager:
         entry = CustomMessageEntry(
             type="custom_message",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
-            customType=custom_type,
+            custom_type=custom_type,
             content=content,
             display=display,
             details=details,
@@ -1008,9 +1089,9 @@ class SessionManager:
         entry = LabelEntry(
             type="label",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
-            targetId=target_id,
+            target_id=target_id,
             label=label,
         )
         self._append_entry(entry)
@@ -1023,7 +1104,7 @@ class SessionManager:
         entry = SessionInfoEntry(
             type="session_info",
             id=_generate_id(self._by_id.keys()),
-            parentId=self._leaf_id,
+            parent_id=self._leaf_id,
             timestamp=_now_iso(),
             name=trimmed,
         )
@@ -1041,7 +1122,7 @@ class SessionManager:
         path: List[SessionEntryType] = []
         while current:
             path.insert(0, current)
-            current = self._by_id.get(current.parentId) if current.parentId else None
+            current = self._by_id.get(current.parent_id) if current.parent_id else None
         return path
 
     def get_tree(self) -> List[SessionTreeNode]:
@@ -1056,10 +1137,10 @@ class SessionManager:
 
         for entry in entries:
             node = node_map[entry.id]
-            if entry.parentId is None or entry.parentId == entry.id:
+            if entry.parent_id is None or entry.parent_id == entry.id:
                 roots.append(node)
             else:
-                parent = node_map.get(entry.parentId)
+                parent = node_map.get(entry.parent_id)
                 if parent:
                     parent.children.append(node)
                 else:
@@ -1093,12 +1174,12 @@ class SessionManager:
         entry = BranchSummaryEntry(
             type="branch_summary",
             id=_generate_id(self._by_id.keys()),
-            parentId=branch_from_id,
+            parent_id=branch_from_id,
             timestamp=_now_iso(),
-            fromId=branch_from_id or "root",
+            from_id=branch_from_id or "root",
             summary=summary,
             details=details,
-            fromHook=from_hook,
+            from_hook=from_hook,
         )
         self._append_entry(entry)
         return entry.id
@@ -1117,7 +1198,7 @@ class SessionManager:
             timestamp=timestamp,
             cwd=self._cwd,
             version=CURRENT_SESSION_VERSION,
-            parentSession=self._session_file if self._persist else None,
+            parent_session=self._session_file if self._persist else None,
         )
 
         path_entry_ids = {entry.id for entry in path_without_labels}
@@ -1133,9 +1214,9 @@ class SessionManager:
             label_entry = LabelEntry(
                 type="label",
                 id=_generate_id(path_entry_ids | {e.id for e in label_entries}),
-                parentId=parent_id,
+                parent_id=parent_id,
                 timestamp=_now_iso(),
-                targetId=item["targetId"],
+                target_id=item["targetId"],
                 label=item["label"],
             )
             label_entries.append(label_entry)
@@ -1160,7 +1241,9 @@ class SessionManager:
             if not isinstance(entry, SessionMessageEntry):
                 continue
             payload = entry.message
-            role = payload.get("role")
+            if isinstance(payload, dict):
+                payload = _normalize_message_dict(payload)
+            role = payload.get("role") if isinstance(payload, dict) else getattr(payload, "role", None)
             if role == "user":
                 messages.append(UserMessage.model_validate(payload))
             elif role == "assistant":

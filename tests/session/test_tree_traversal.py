@@ -13,9 +13,9 @@ def test_append_chain_parents():
     entries = session.get_entries()
     assert len(entries) == 3
     assert entries[0].id == id1
-    assert entries[0].parentId is None
-    assert entries[1].parentId == id1
-    assert entries[2].parentId == id2
+    assert entries[0].parent_id is None
+    assert entries[1].parent_id == id1
+    assert entries[2].parent_id == id2
 
 
 def test_append_thinking_model_compaction_custom():
@@ -30,19 +30,19 @@ def test_append_thinking_model_compaction_custom():
     entries = session.get_entries()
     thinking_entry = next(e for e in entries if e.type == "thinking_level_change")
     assert thinking_entry.id == thinking_id
-    assert thinking_entry.parentId == msg_id
+    assert thinking_entry.parent_id == msg_id
 
     model_entry = next(e for e in entries if e.type == "model_change")
     assert model_entry.id == model_id
-    assert model_entry.parentId == thinking_id
+    assert model_entry.parent_id == thinking_id
 
     compaction_entry = next(e for e in entries if e.type == "compaction")
     assert compaction_entry.id == compaction_id
-    assert compaction_entry.parentId == model_id
+    assert compaction_entry.parent_id == model_id
 
     custom_entry = next(e for e in entries if e.type == "custom")
     assert custom_entry.id == custom_id
-    assert custom_entry.parentId == compaction_id
+    assert custom_entry.parent_id == compaction_id
 
 
 def test_leaf_pointer_advances():
@@ -100,7 +100,7 @@ def test_branch_with_summary_inserts_entry():
     summary_id = session.branch_with_summary(id1, "Summary of abandoned work")
     assert session.get_leaf_id() == summary_id
     summary_entry = next(e for e in session.get_entries() if e.type == "branch_summary")
-    assert summary_entry.parentId == id1
+    assert summary_entry.parent_id == id1
     assert summary_entry.summary == "Summary of abandoned work"
 
 

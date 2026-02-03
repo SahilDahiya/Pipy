@@ -13,7 +13,7 @@ def test_labels_set_get_and_clear():
     entries = session.get_entries()
     label_entry = next(e for e in entries if e.type == "label")
     assert label_entry.id == label_id
-    assert label_entry.targetId == msg_id
+    assert label_entry.target_id == msg_id
     assert label_entry.label == "checkpoint"
 
     session.append_label_change(msg_id, None)

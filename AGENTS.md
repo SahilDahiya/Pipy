@@ -1,29 +1,32 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/` holds the TypeScript runtime. Key areas: `src/cli/` (CLI entry at `src/cli/index.ts`), `src/runtime/`, `src/tools/`, `src/adapters/`, `src/gateway/`, `src/pi/`, and `src/contracts/`.
+- `pi_ai/` holds provider integrations, streaming, auth, models, and validation.
+- `pi_agent/` contains the agent loop, events, and core state.
+- `pi_tools/` implements tool primitives (read/write/edit/shell, etc.).
+- `pi_session/` manages JSONL persistence and session trees.
+- `pi_sdk/` is the embedding SDK and RPC entry point (`pi_sdk/rpc.py`).
+- `tests/` contains pytest coverage.
 - `docs/` contains architecture and workflow docs. Start at `docs/README.md` and add any new docs to its index.
-- `specs/` stores product and system specs. `prompts/` and `skills/` hold templates and skill content.
-- `dist/` is for build outputs. `cmd/` and `internal/` are reserved for future entry points and core packages.
+- `main.py` is a small runnable entry for quick smoke checks.
 
 ## Build, Test, and Development Commands
-- Install dependencies: `bun install`
-- Run in watch mode: `bun run dev`
-- Run once: `bun run start`
-- Build the CLI binary: `bun run build` (outputs `dist/wbot`)
-- Install locally: `bun run install:local`
-- Typecheck: `bun run typecheck`
-- Tests are not configured yet; add a runner and a script before enforcing test expectations.
+- Install dependencies: `uv sync` (creates/uses `.venv`).
+- Install test dependencies: `uv sync --extra test`.
+- Run tests: `uv run pytest`.
+- Run the local entry: `uv run python main.py`.
+- Run RPC entry point: `uv run pi-rpc`.
 
 ## Coding Style & Naming Conventions
-- TypeScript with ES modules. Use 2-space indentation and semicolons (match existing files).
-- Use `camelCase` for variables/functions, `PascalCase` for types/classes, and `UPPER_SNAKE_CASE` for constants.
-- Prefer `kebab-case` file names (see `src/cli/key-store.ts`).
-- Keep side-effecting CLI code in `src/cli/` and reusable logic under `src/runtime/` or `src/tools/`.
+- Python 3.12. Match existing formatting (4-space indentation).
+- Use `snake_case` for variables/functions, `PascalCase` for classes/types, and `UPPER_SNAKE_CASE` for constants.
+- Keep provider logic in `pi_ai/`, core agent logic in `pi_agent/`, session handling in `pi_session/`, and tool logic in `pi_tools/`.
+- Avoid side effects at import time; keep I/O in entry points or explicit functions.
 
 ## Testing Guidelines
-- No framework is present yet. If you add tests, create a top-level `tests/` directory and name files `*.test.ts`.
-- Document the chosen runner (for example, Bun test or Vitest) in `package.json` scripts.
+- Tests live in `tests/` and use `test_*.py` naming.
+- Use `pytest` and `pytest-asyncio` (configured in `pyproject.toml`).
+- For bug reports, start by writing a reproducing test.
 
 ## Commit & Pull Request Guidelines
 - Commit history uses short, imperative messages (e.g., "Add ...", "Fix ..."). Follow that style.
@@ -35,7 +38,6 @@
 - Prefer additive changes over refactors unless explicitly requested.
 - If behavior changes, update relevant docs and the index in `docs/README.md`.
 - Use ASCII by default; add Unicode only when already used.
-- For bug reports, start by writing a reproducing test when a test runner exists.
 - Do not ask the user for non-consequential actions; proceed with best judgment and note it in the response.
 
 ## Debugging
@@ -75,7 +77,3 @@
 - If multiple options are equally important, do them all in a reasonable sequence instead of asking me to choose.
 - For any performance improvement, include a brief tradeoff analysis before implementation and summarize it in the final response.
 - For performance-related changes, capture before/after measurements when feasible.
-
-## Python Setup Hints (Optional)
-- If you build a Python companion, mirror the CLI entry with a `pyproject.toml`, a `src/wbot/` package, and a `__main__.py` entry point.
-- Use a local virtual environment (e.g., `.venv`) and document install/run steps alongside the Bun workflow.

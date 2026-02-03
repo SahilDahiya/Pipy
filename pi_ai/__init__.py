@@ -1,7 +1,7 @@
 """LLM layer for pi-python."""
 
 from .models import create_anthropic_model, create_openai_model, get_model, list_models, register_model
-from .providers import stream_simple
+from .stream import complete, complete_simple, stream, stream_simple
 
 __all__ = [
     "auth",
@@ -9,6 +9,10 @@ __all__ = [
     "models",
     "providers",
     "streaming",
+    "stream",
+    "complete",
+    "stream_simple",
+    "complete_simple",
     "types",
     "validation",
     "create_openai_model",
@@ -16,5 +20,4 @@ __all__ = [
     "get_model",
     "list_models",
     "register_model",
-    "stream_simple",
 ]

@@ -5,6 +5,8 @@ read_when: you are adding a model, debugging provider payloads, or tuning reason
 ## OpenAI Completions (and compatibles)
 
 - API: `openai-completions` via `pi_ai.providers.openai`.
+- Call `pi_ai.stream()` / `pi_ai.complete()` for provider-native options, or
+  `pi_ai.stream_simple()` / `pi_ai.complete_simple()` for unified settings.
 - Default base URL: `https://api.openai.com/v1` (override with `Model.base_url`).
 - `get_model()` returns built-in metadata for common OpenAI ids (e.g., `gpt-4o`, `gpt-4o-mini`).
 - Supports tool calling, streaming usage, and reasoning effort where available.

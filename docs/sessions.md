@@ -5,8 +5,7 @@ read_when: you are persisting runs, branching, or inspecting JSONL history
 ## JSONL format
 
 - Each session file begins with a `session` header containing `id`, `cwd`, `timestamp`, and `version`.
-- Entries are append-only and include `id`, `parentId`, and `timestamp` for tree navigation.
-- Python dataclasses expose these fields as `parent_id`, `thinking_level`, and `model_id`, while the JSONL stays camelCase for compatibility.
+- Entries are append-only and include `id`, `parent_id`, and `timestamp` for tree navigation.
 - Supported entry types: `message`, `thinking_level_change`, `model_change`, `compaction`, `branch_summary`,
   `custom`, `custom_message`, `label`, `session_info`.
 

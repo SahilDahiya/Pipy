@@ -23,7 +23,7 @@ def test_load_entries_from_file(tmp_path):
     valid = tmp_path / "valid.jsonl"
     valid.write_text(
         '{"type":"session","id":"abc","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n'
-        '{"type":"message","id":"1","parentId":null,"timestamp":"2025-01-01T00:00:01Z","message":{"role":"user","content":"hi","timestamp":1}}\n',
+        '{"type":"message","id":"1","parent_id":null,"timestamp":"2025-01-01T00:00:01Z","message":{"role":"user","content":"hi","timestamp":1}}\n',
         encoding="utf-8",
     )
     entries = load_entries_from_file(str(valid))
@@ -35,7 +35,7 @@ def test_load_entries_from_file(tmp_path):
     mixed.write_text(
         '{"type":"session","id":"abc","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n'
         "not valid json\n"
-        '{"type":"message","id":"1","parentId":null,"timestamp":"2025-01-01T00:00:01Z","message":{"role":"user","content":"hi","timestamp":1}}\n',
+        '{"type":"message","id":"1","parent_id":null,"timestamp":"2025-01-01T00:00:01Z","message":{"role":"user","content":"hi","timestamp":1}}\n',
         encoding="utf-8",
     )
     entries = load_entries_from_file(str(mixed))

@@ -53,7 +53,7 @@ def _parse_images(raw: Any) -> Optional[list[ImageContent]]:
         if not isinstance(item, dict):
             continue
         data = item.get("data")
-        mime_type = item.get("mime_type") or item.get("mimeType")
+        mime_type = item.get("mime_type")
         if isinstance(data, str) and isinstance(mime_type, str):
             images.append(ImageContent(data=data, mime_type=mime_type))
     return images or None
@@ -87,7 +87,7 @@ async def _handle_prompt(agent: Agent, payload: Dict[str, Any]) -> None:
         return
 
     images = _parse_images(payload.get("images"))
-    streaming_behavior = payload.get("streamingBehavior") or payload.get("streaming_behavior")
+    streaming_behavior = payload.get("streaming_behavior")
     if agent.state.is_streaming and streaming_behavior in {"steer", "follow_up"}:
         queued_message = UserMessage(content=message)
         if streaming_behavior == "steer":
@@ -130,7 +130,7 @@ async def _handle_follow_up(agent: Agent, payload: Dict[str, Any]) -> None:
 async def _handle_set_model(agent: Agent, payload: Dict[str, Any]) -> None:
     request_id = payload.get("id")
     provider = payload.get("provider")
-    model_id = payload.get("model_id") or payload.get("modelId")
+    model_id = payload.get("model_id")
     if not isinstance(provider, str) or not isinstance(model_id, str):
         _emit(_error("set_model", "set_model requires provider and model_id", request_id))
         return

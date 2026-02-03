@@ -18,8 +18,8 @@ def test_migrate_v1_adds_ids():
                 "api": "test",
                 "provider": "test",
                 "model": "test",
-                "usage": {"input": 1, "output": 1, "cacheRead": 0, "cacheWrite": 0},
-                "stopReason": "stop",
+                "usage": {"input": 1, "output": 1, "cache_read": 0, "cache_write": 0},
+                "stop_reason": "stop",
                 "timestamp": 2,
             },
         },
@@ -28,8 +28,8 @@ def test_migrate_v1_adds_ids():
     migrate_session_entries(entries)
     assert entries[0]["version"] == 3
     assert entries[1]["id"]
-    assert entries[1]["parentId"] is None
-    assert entries[2]["parentId"] == entries[1]["id"]
+    assert entries[1]["parent_id"] is None
+    assert entries[2]["parent_id"] == entries[1]["id"]
 
 
 def test_migrate_idempotent():
@@ -38,14 +38,14 @@ def test_migrate_idempotent():
         {
             "type": "message",
             "id": "abc12345",
-            "parentId": None,
+            "parent_id": None,
             "timestamp": "2025-01-01T00:00:01Z",
             "message": {"role": "user", "content": "hi", "timestamp": 1},
         },
         {
             "type": "message",
             "id": "def67890",
-            "parentId": "abc12345",
+            "parent_id": "abc12345",
             "timestamp": "2025-01-01T00:00:02Z",
             "message": {
                 "role": "assistant",
@@ -53,8 +53,8 @@ def test_migrate_idempotent():
                 "api": "test",
                 "provider": "test",
                 "model": "test",
-                "usage": {"input": 1, "output": 1, "cacheRead": 0, "cacheWrite": 0},
-                "stopReason": "stop",
+                "usage": {"input": 1, "output": 1, "cache_read": 0, "cache_write": 0},
+                "stop_reason": "stop",
                 "timestamp": 2,
             },
         },
@@ -63,4 +63,4 @@ def test_migrate_idempotent():
     migrate_session_entries(entries)
     assert entries[1]["id"] == "abc12345"
     assert entries[2]["id"] == "def67890"
-    assert entries[2]["parentId"] == "abc12345"
+    assert entries[2]["parent_id"] == "abc12345"

@@ -84,8 +84,8 @@ def create_edit_tool(cwd: str, options: Optional[EditToolOptions] = None) -> Too
             raise RuntimeError("Operation aborted")
 
         path = str(params.get("path"))
-        old_text = str(params.get("old_text") or params.get("oldText") or "")
-        new_text = str(params.get("new_text") or params.get("newText") or "")
+        old_text = str(params.get("old_text") or "")
+        new_text = str(params.get("new_text") or "")
 
         absolute_path = resolve_to_cwd(path, cwd)
         try:

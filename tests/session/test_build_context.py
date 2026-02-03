@@ -134,7 +134,7 @@ def test_build_context_with_compaction():
         msg("7", "6", "assistant", "response3"),
     ]
     ctx = build_session_context(entries)
-    assert get_role(ctx.messages[0]) == "compactionSummary"
+    assert get_role(ctx.messages[0]) == "compaction_summary"
     assert "Summary" in ctx.messages[0]["summary"]
     assert get_content(ctx.messages[1]) == "second"
     assert get_first_text(ctx.messages[2]) == "response2"
@@ -177,5 +177,5 @@ def test_build_context_branches_and_branch_summary():
     ]
 
     ctx = build_session_context(entries)
-    assert get_role(ctx.messages[2]) == "branchSummary"
+    assert get_role(ctx.messages[2]) == "branch_summary"
     assert "Summary" in ctx.messages[2]["summary"]

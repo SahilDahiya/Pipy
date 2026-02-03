@@ -18,7 +18,7 @@ pi-rpc
 - `{"type": "abort"}`: cancel the current run.
 - `{"type": "reset"}` / `{"type": "new_session"}`: clear messages and queues.
 - `{"type": "get_state"}`: return the current agent state.
-- `{"type": "set_model", "provider": "...", "model_id": "..."}`: switch models (also accepts `modelId`).
+- `{"type": "set_model", "provider": "...", "model_id": "..."}`: switch models.
 - `{"type": "set_thinking_level", "level": "low"}`: adjust reasoning level.
 - `{"type": "set_steering_mode", "mode": "all"}` / `set_follow_up_mode`.
 - `{"type": "get_messages"}`: return the current message list.

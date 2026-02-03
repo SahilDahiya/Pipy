@@ -86,65 +86,17 @@ def _coerce_message(message: Any) -> Any:
     if isinstance(message, (UserMessage, AssistantMessage, ToolResultMessage)):
         return message
     if isinstance(message, dict):
-        normalized = _normalize_message_dict(message)
-        role = normalized.get("role")
+        role = message.get("role")
         try:
             if role == "user":
-                return UserMessage.model_validate(normalized)
+                return UserMessage.model_validate(message)
             if role == "assistant":
-                return AssistantMessage.model_validate(normalized)
-            if role == "toolResult":
-                return ToolResultMessage.model_validate(normalized)
+                return AssistantMessage.model_validate(message)
+            if role == "tool_result":
+                return ToolResultMessage.model_validate(message)
         except Exception:
             return message
     return message
-
-
-def _normalize_message_dict(message: Dict[str, Any]) -> Dict[str, Any]:
-    normalized = dict(message)
-    _rename_key(normalized, "stopReason", "stop_reason")
-    _rename_key(normalized, "errorMessage", "error_message")
-    _rename_key(normalized, "toolCallId", "tool_call_id")
-    _rename_key(normalized, "toolName", "tool_name")
-    _rename_key(normalized, "isError", "is_error")
-
-    usage = normalized.get("usage")
-    if isinstance(usage, dict):
-        normalized["usage"] = _normalize_usage_dict(usage)
-
-    content = normalized.get("content")
-    if isinstance(content, list):
-        normalized["content"] = [
-            _normalize_content_block(block) if isinstance(block, dict) else block for block in content
-        ]
-    return normalized
-
-
-def _normalize_usage_dict(usage: Dict[str, Any]) -> Dict[str, Any]:
-    normalized = dict(usage)
-    _rename_key(normalized, "cacheRead", "cache_read")
-    _rename_key(normalized, "cacheWrite", "cache_write")
-    _rename_key(normalized, "totalTokens", "total_tokens")
-    cost = normalized.get("cost")
-    if isinstance(cost, dict):
-        cost_normalized = dict(cost)
-        _rename_key(cost_normalized, "cacheRead", "cache_read")
-        _rename_key(cost_normalized, "cacheWrite", "cache_write")
-        normalized["cost"] = cost_normalized
-    return normalized
-
-
-def _normalize_content_block(block: Dict[str, Any]) -> Dict[str, Any]:
-    normalized = dict(block)
-    _rename_key(normalized, "mimeType", "mime_type")
-    _rename_key(normalized, "thinkingSignature", "thinking_signature")
-    _rename_key(normalized, "thoughtSignature", "thought_signature")
-    return normalized
-
-
-def _rename_key(data: Dict[str, Any], old: str, new: str) -> None:
-    if old in data and new not in data:
-        data[new] = data.pop(old)
 
 
 def _get_last_activity_time(entries: List[Dict[str, Any]]) -> Optional[int]:
@@ -240,7 +192,7 @@ def build_session_info(file_path: str) -> Optional[SessionInfo]:
             first_message = text_content
 
     cwd = header.get("cwd") if isinstance(header.get("cwd"), str) else ""
-    parent_session_path = header.get("parentSession") or header.get("parent_session")
+    parent_session_path = header.get("parent_session")
     header_time = header.get("timestamp")
     created = _parse_iso_timestamp(header_time) if isinstance(header_time, str) else None
     if created is None:
@@ -306,7 +258,7 @@ class SessionHeader:
             "version": self.version,
         }
         if self.parent_session:
-            data["parentSession"] = self.parent_session
+            data["parent_session"] = self.parent_session
         return data
 
 
@@ -321,7 +273,7 @@ class SessionEntry:
         return {
             "type": self.type,
             "id": self.id,
-            "parentId": self.parent_id,
+            "parent_id": self.parent_id,
             "timestamp": self.timestamp,
         }
 
@@ -342,7 +294,7 @@ class ThinkingLevelChangeEntry(SessionEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["thinkingLevel"] = self.thinking_level
+        data["thinking_level"] = self.thinking_level
         return data
 
 
@@ -354,7 +306,7 @@ class ModelChangeEntry(SessionEntry):
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data["provider"] = self.provider
-        data["modelId"] = self.model_id
+        data["model_id"] = self.model_id
         return data
 
 
@@ -371,14 +323,14 @@ class CompactionEntry(SessionEntry):
         data.update(
             {
                 "summary": self.summary,
-                "firstKeptEntryId": self.first_kept_entry_id,
-                "tokensBefore": self.tokens_before,
+                "first_kept_entry_id": self.first_kept_entry_id,
+                "tokens_before": self.tokens_before,
             }
         )
         if self.details is not None:
             data["details"] = self.details
         if self.from_hook is not None:
-            data["fromHook"] = self.from_hook
+            data["from_hook"] = self.from_hook
         return data
 
 
@@ -391,11 +343,11 @@ class BranchSummaryEntry(SessionEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({"fromId": self.from_id, "summary": self.summary})
+        data.update({"from_id": self.from_id, "summary": self.summary})
         if self.details is not None:
             data["details"] = self.details
         if self.from_hook is not None:
-            data["fromHook"] = self.from_hook
+            data["from_hook"] = self.from_hook
         return data
 
 
@@ -406,7 +358,7 @@ class CustomEntry(SessionEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["customType"] = self.custom_type
+        data["custom_type"] = self.custom_type
         if self.data is not None:
             data["data"] = self.data
         return data
@@ -421,7 +373,7 @@ class CustomMessageEntry(SessionEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({"customType": self.custom_type, "content": self.content, "display": self.display})
+        data.update({"custom_type": self.custom_type, "content": self.content, "display": self.display})
         if self.details is not None:
             data["details"] = self.details
         return data
@@ -434,7 +386,7 @@ class LabelEntry(SessionEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data["targetId"] = self.target_id
+        data["target_id"] = self.target_id
         if self.label is not None:
             data["label"] = self.label
         return data
@@ -497,9 +449,7 @@ class SessionContext:
 
 def _entry_from_dict(payload: Dict[str, Any]) -> SessionEntryType:
     entry_type = payload.get("type")
-    parent_id = payload.get("parentId")
-    if parent_id is None:
-        parent_id = payload.get("parent_id")
+    parent_id = payload.get("parent_id")
     base = {
         "type": entry_type,
         "id": payload.get("id"),
@@ -511,41 +461,41 @@ def _entry_from_dict(payload: Dict[str, Any]) -> SessionEntryType:
     if entry_type == "thinking_level_change":
         return ThinkingLevelChangeEntry(
             **base,
-            thinking_level=payload.get("thinkingLevel", payload.get("thinking_level", "off")),
+            thinking_level=payload.get("thinking_level", "off"),
         )
     if entry_type == "model_change":
         return ModelChangeEntry(
             **base,
             provider=payload.get("provider", ""),
-            model_id=payload.get("modelId", payload.get("model_id", "")),
+            model_id=payload.get("model_id", ""),
         )
     if entry_type == "compaction":
         return CompactionEntry(
             **base,
             summary=payload.get("summary", ""),
-            first_kept_entry_id=payload.get("firstKeptEntryId", payload.get("first_kept_entry_id", "")),
-            tokens_before=payload.get("tokensBefore", payload.get("tokens_before", 0)),
+            first_kept_entry_id=payload.get("first_kept_entry_id", ""),
+            tokens_before=payload.get("tokens_before", 0),
             details=payload.get("details"),
-            from_hook=payload.get("fromHook", payload.get("from_hook")),
+            from_hook=payload.get("from_hook"),
         )
     if entry_type == "branch_summary":
         return BranchSummaryEntry(
             **base,
-            from_id=payload.get("fromId", payload.get("from_id", "")),
+            from_id=payload.get("from_id", ""),
             summary=payload.get("summary", ""),
             details=payload.get("details"),
-            from_hook=payload.get("fromHook", payload.get("from_hook")),
+            from_hook=payload.get("from_hook"),
         )
     if entry_type == "custom":
         return CustomEntry(
             **base,
-            custom_type=payload.get("customType", payload.get("custom_type", "")),
+            custom_type=payload.get("custom_type", ""),
             data=payload.get("data"),
         )
     if entry_type == "custom_message":
         return CustomMessageEntry(
             **base,
-            custom_type=payload.get("customType", payload.get("custom_type", "")),
+            custom_type=payload.get("custom_type", ""),
             content=payload.get("content"),
             display=bool(payload.get("display", False)),
             details=payload.get("details"),
@@ -553,7 +503,7 @@ def _entry_from_dict(payload: Dict[str, Any]) -> SessionEntryType:
     if entry_type == "label":
         return LabelEntry(
             **base,
-            target_id=payload.get("targetId", payload.get("target_id", "")),
+            target_id=payload.get("target_id", ""),
             label=payload.get("label"),
         )
     if entry_type == "session_info":
@@ -562,9 +512,7 @@ def _entry_from_dict(payload: Dict[str, Any]) -> SessionEntryType:
 
 
 def _normalize_session_header(header: Dict[str, Any]) -> Dict[str, Any]:
-    normalized = dict(header)
-    _rename_key(normalized, "parentSession", "parent_session")
-    return normalized
+    return dict(header)
 
 
 def load_entries_from_file(path: str) -> List[Dict[str, Any]]:
@@ -621,15 +569,15 @@ def migrate_session_entries(entries: List[Dict[str, Any]]) -> bool:
             entry_id = _generate_id(existing_ids)
             existing_ids.add(entry_id)
             entry["id"] = entry_id
-            entry["parentId"] = previous_id
+            entry["parent_id"] = previous_id
             previous_id = entry_id
-            if entry.get("type") == "compaction" and "firstKeptEntryIndex" in entry:
-                index = entry.get("firstKeptEntryIndex")
+            if entry.get("type") == "compaction" and "first_kept_entry_index" in entry:
+                index = entry.get("first_kept_entry_index")
                 if isinstance(index, int) and 0 <= index < len(entries):
                     target = entries[index]
                     if target.get("type") != "session":
-                        entry["firstKeptEntryId"] = target.get("id")
-                entry.pop("firstKeptEntryIndex", None)
+                        entry["first_kept_entry_id"] = target.get("id")
+                entry.pop("first_kept_entry_index", None)
         changed = True
         version = 2
 
@@ -639,7 +587,7 @@ def migrate_session_entries(entries: List[Dict[str, Any]]) -> bool:
                 entry["version"] = 3
             if entry.get("type") == "message":
                 message = entry.get("message") or {}
-                if message.get("role") == "hookMessage":
+                if message.get("role") == "hook_message":
                     message["role"] = "custom"
                     entry["message"] = message
         changed = True
@@ -716,7 +664,7 @@ def build_session_context(
         elif isinstance(entry, BranchSummaryEntry):
             messages.append(
                 {
-                    "role": "branchSummary",
+                    "role": "branch_summary",
                     "summary": entry.summary,
                     "from_id": entry.from_id,
                     "timestamp": int(datetime.fromisoformat(entry.timestamp).timestamp() * 1000),
@@ -726,7 +674,7 @@ def build_session_context(
     if compaction:
         messages.append(
             {
-                "role": "compactionSummary",
+                "role": "compaction_summary",
                 "summary": compaction.summary,
                 "tokens_before": compaction.tokens_before,
                 "timestamp": int(datetime.fromisoformat(compaction.timestamp).timestamp() * 1000),
@@ -1203,7 +1151,7 @@ class SessionManager:
 
         path_entry_ids = {entry.id for entry in path_without_labels}
         labels_to_write = [
-            {"targetId": target_id, "label": label}
+            {"target_id": target_id, "label": label}
             for target_id, label in self._labels_by_id.items()
             if target_id in path_entry_ids
         ]
@@ -1216,7 +1164,7 @@ class SessionManager:
                 id=_generate_id(path_entry_ids | {e.id for e in label_entries}),
                 parent_id=parent_id,
                 timestamp=_now_iso(),
-                target_id=item["targetId"],
+                target_id=item["target_id"],
                 label=item["label"],
             )
             label_entries.append(label_entry)
@@ -1241,14 +1189,12 @@ class SessionManager:
             if not isinstance(entry, SessionMessageEntry):
                 continue
             payload = entry.message
-            if isinstance(payload, dict):
-                payload = _normalize_message_dict(payload)
             role = payload.get("role") if isinstance(payload, dict) else getattr(payload, "role", None)
             if role == "user":
                 messages.append(UserMessage.model_validate(payload))
             elif role == "assistant":
                 messages.append(AssistantMessage.model_validate(payload))
-            elif role == "toolResult":
+            elif role == "tool_result":
                 messages.append(ToolResultMessage.model_validate(payload))
         return messages
 

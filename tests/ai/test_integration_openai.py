@@ -9,6 +9,7 @@ from pi_ai.types import Context, Tool, ToolCall, UserMessage
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-4.1-nano")
 
 pytestmark = pytest.mark.skipif(
     not OPENAI_API_KEY, reason="OPENAI_API_KEY is required for OpenAI integration tests."
@@ -37,7 +38,7 @@ def _calculator_tool() -> Tool:
 
 @pytest.mark.asyncio
 async def test_openai_basic_text_generation():
-    model = create_openai_model("gpt-4o-mini", provider="openai")
+    model = create_openai_model(OPENAI_MODEL_ID, provider="openai")
     context = Context(
         system_prompt="You are a helpful assistant.",
         messages=[UserMessage(content="Reply with exactly: hello test")],
@@ -55,7 +56,7 @@ async def test_openai_basic_text_generation():
 
 @pytest.mark.asyncio
 async def test_openai_tool_call_streaming():
-    model = create_openai_model("gpt-4o-mini", provider="openai")
+    model = create_openai_model(OPENAI_MODEL_ID, provider="openai")
     context = Context(
         system_prompt="You are a helpful assistant that must use the calculator tool.",
         messages=[

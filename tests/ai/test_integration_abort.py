@@ -12,6 +12,8 @@ from pi_ai.types import Context, UserMessage
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-4.1-nano")
+ANTHROPIC_MODEL_ID = os.getenv("PI_ANTHROPIC_TEST_MODEL", "claude-3-haiku-20240307")
 
 
 async def _abort_stream(model, context, options, abort_after_chars: int = 80):
@@ -38,7 +40,7 @@ async def _abort_stream(model, context, options, abort_after_chars: int = 80):
     not OPENAI_API_KEY, reason="OPENAI_API_KEY is required for OpenAI abort integration tests."
 )
 async def test_openai_abort_and_continue():
-    model = create_openai_model("gpt-4o-mini", provider="openai")
+    model = create_openai_model(OPENAI_MODEL_ID, provider="openai")
     context = Context(
         system_prompt="You are a helpful assistant.",
         messages=[
@@ -71,7 +73,7 @@ async def test_openai_abort_and_continue():
     not ANTHROPIC_API_KEY, reason="ANTHROPIC_API_KEY is required for Anthropic abort tests."
 )
 async def test_anthropic_abort_and_continue():
-    model = create_anthropic_model("claude-sonnet-4-5", provider="anthropic")
+    model = create_anthropic_model(ANTHROPIC_MODEL_ID, provider="anthropic")
     context = Context(
         system_prompt="You are a helpful assistant.",
         messages=[

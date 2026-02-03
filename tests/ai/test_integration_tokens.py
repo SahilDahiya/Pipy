@@ -12,6 +12,8 @@ from pi_ai.types import Context, UserMessage
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+OPENAI_MODEL_ID = os.getenv("PI_OPENAI_TEST_MODEL", "gpt-4.1-nano")
+ANTHROPIC_MODEL_ID = os.getenv("PI_ANTHROPIC_TEST_MODEL", "claude-3-haiku-20240307")
 
 
 async def _abort_with_signal(model, context, options, abort_after_chars: int = 80):
@@ -34,7 +36,7 @@ async def _abort_with_signal(model, context, options, abort_after_chars: int = 8
     not OPENAI_API_KEY, reason="OPENAI_API_KEY is required for OpenAI token tests."
 )
 async def test_openai_abort_has_no_usage_tokens():
-    model = create_openai_model("gpt-4o-mini", provider="openai")
+    model = create_openai_model(OPENAI_MODEL_ID, provider="openai")
     context = Context(
         system_prompt="You are a helpful assistant.",
         messages=[UserMessage(content="Write a long list of 50 short words.")],
@@ -54,7 +56,7 @@ async def test_openai_abort_has_no_usage_tokens():
     not ANTHROPIC_API_KEY, reason="ANTHROPIC_API_KEY is required for Anthropic token tests."
 )
 async def test_anthropic_abort_reports_input_tokens():
-    model = create_anthropic_model("claude-sonnet-4-5", provider="anthropic")
+    model = create_anthropic_model(ANTHROPIC_MODEL_ID, provider="anthropic")
     context = Context(
         system_prompt="You are a helpful assistant.",
         messages=[UserMessage(content="Write a long list of 50 short words.")],

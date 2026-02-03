@@ -18,6 +18,10 @@ Port the core of pi-mono into Python so developers can `pip install pi-python` a
 3. Commit meaningful changes as you go to make review easy.
 4. Before declaring completion, re-check `/home/dahiy/repos/pi-mono` for parity.
 
+## Open notes
+
+- Replace monkeypatch-based tests with explicit dependency injection (stream dispatch, RPC emit, bash shell config).
+
 ## In scope
 
 - `pi_ai`: LLM abstraction with OpenAI Completions + Anthropic Messages

@@ -2,39 +2,17 @@
 
 read_when: you need setup, test, or local run instructions
 
-## Setup
+## Runtime
 
-- Python 3.12+ is required.
-- Create a virtual environment and install deps:
+This project uses Python 3.12+ with `uv` for environment management.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[test]
-```
+## Commands
 
-## Run locally
+- Install deps: `uv sync` (creates/uses `.venv`).
+- Install dev deps: `uv sync --extra dev`.
+- Install test deps: `uv sync --extra test`.
+- Run tests: `uv run pytest`.
+- Lint and format: `uv run ruff check .` / `uv run ruff format .`.
+- Run RPC: `uv run pi-rpc` (or `uv run python -m pi_sdk.rpc`).
 
-- RPC mode (JSON over stdin/stdout):
-
-```bash
-python -m pi_sdk.rpc
-# or
-pi-rpc
-```
-
-- Provider/model overrides:
-
-```bash
-PI_PROVIDER=openai PI_MODEL=gpt-4o-mini python -m pi_sdk.rpc
-```
-
-## Tests
-
-- Run the test suite:
-
-```bash
-pytest
-```
-
-- If tests are missing for new behavior, add them before expanding APIs.
+If tests are missing for new behavior, add them before expanding APIs.

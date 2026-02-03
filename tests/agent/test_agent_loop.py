@@ -171,6 +171,7 @@ async def test_tool_calls_execute_and_continue():
         stream = AssistantMessageEventStream()
 
         async def run():
+            nonlocal call_index
             await asyncio.sleep(0)
             if call_index == 0:
                 msg = create_assistant_message(
@@ -237,6 +238,7 @@ async def test_steering_skips_remaining_tool_calls():
         stream = AssistantMessageEventStream()
 
         async def run():
+            nonlocal call_index
             await asyncio.sleep(0)
             if call_index == 0:
                 msg = create_assistant_message(

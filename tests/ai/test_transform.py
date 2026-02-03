@@ -36,6 +36,8 @@ def test_tool_call_id_normalization():
         return "normalized"
 
     model = create_model()
+    model.provider = "anthropic"
+    model.api = "anthropic-messages"
     transformed = transform_messages([assistant, tool_result], model, normalize)
 
     assert transformed[1].tool_call_id == "normalized"

@@ -6,7 +6,11 @@ from tests.helpers import create_assistant_message, create_user_message
 
 
 def test_openai_tool_result_images_create_user_message():
-    model = create_openai_model("gpt-4o-mini", provider="openai")
+    model = create_openai_model(
+        "gpt-4o-mini",
+        provider="openai",
+        input_modalities=["text", "image"],
+    )
     tool_result = ToolResultMessage(
         tool_call_id="tool-1",
         tool_name="read",
@@ -25,7 +29,11 @@ def test_openai_tool_result_images_create_user_message():
 
 
 def test_openai_batches_tool_result_images():
-    model = create_openai_model("gpt-4o-mini", provider="openai")
+    model = create_openai_model(
+        "gpt-4o-mini",
+        provider="openai",
+        input_modalities=["text", "image"],
+    )
     assistant = create_assistant_message(
         [
             ToolCall(id="tool-1", name="read", arguments={"path": "img-1.png"}),

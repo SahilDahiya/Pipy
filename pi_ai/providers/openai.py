@@ -443,7 +443,9 @@ def _convert_messages(
 ) -> List[Dict[str, Any]]:
     params: List[Dict[str, Any]] = []
 
-    def normalize_tool_call_id(tool_id: str, _model: Model, _source: AssistantMessage) -> str:
+    def normalize_tool_call_id(
+        tool_id: str, _model: Optional[Model] = None, _source: Optional[AssistantMessage] = None
+    ) -> str:
         if compat.requires_mistral_tool_ids:
             return _normalize_mistral_tool_id(tool_id)
         if "|" in tool_id:

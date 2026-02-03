@@ -12,7 +12,10 @@
 
 ## Build, Test, and Development Commands
 - Install dependencies: `uv sync` (creates/uses `.venv`).
+- Install dev dependencies (lint/type check): `uv sync --extra dev`.
 - Install test dependencies: `uv sync --extra test`.
+- Run lint/type check: `uv run ruff check .`.
+- Auto-format: `uv run ruff format .`.
 - Run tests: `uv run pytest`.
 - Run the local entry: `uv run python main.py`.
 - Run RPC entry point: `uv run pi-rpc`.
@@ -20,6 +23,7 @@
 ## Coding Style & Naming Conventions
 - Python 3.12. Match existing formatting (4-space indentation).
 - Use `snake_case` for variables/functions, `PascalCase` for classes/types, and `UPPER_SNAKE_CASE` for constants.
+- Use Ruff for linting and type-check style checks.
 - Keep provider logic in `pi_ai/`, core agent logic in `pi_agent/`, session handling in `pi_session/`, and tool logic in `pi_tools/`.
 - Avoid side effects at import time; keep I/O in entry points or explicit functions.
 

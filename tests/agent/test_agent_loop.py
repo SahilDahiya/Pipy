@@ -267,8 +267,8 @@ async def test_steering_skips_remaining_tool_calls():
     tool_ends = [e for e in events if e["type"] == "tool_execution_end"]
     assert executed == ["first"]
     assert len(tool_ends) == 2
-    assert tool_ends[0]["isError"] is False
-    assert tool_ends[1]["isError"] is True
+    assert tool_ends[0]["is_error"] is False
+    assert tool_ends[1]["is_error"] is True
     assert saw_interrupt is True
 
 

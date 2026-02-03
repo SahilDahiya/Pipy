@@ -142,7 +142,7 @@ async def _run_loop(
             new_messages.append(message)
 
             if message.stop_reason in {"error", "aborted"}:
-                stream.push({"type": "turn_end", "message": message, "toolResults": []})
+                stream.push({"type": "turn_end", "message": message, "tool_results": []})
                 stream.push({"type": "agent_end", "messages": new_messages})
                 stream.end(new_messages)
                 return
@@ -166,7 +166,7 @@ async def _run_loop(
                     current_context.messages.append(result)
                     new_messages.append(result)
 
-            stream.push({"type": "turn_end", "message": message, "toolResults": tool_results})
+            stream.push({"type": "turn_end", "message": message, "tool_results": tool_results})
 
             if steering_after_tools:
                 pending_messages = steering_after_tools
@@ -261,7 +261,7 @@ async def _stream_assistant_response(
                 stream.push(
                     {
                         "type": "message_update",
-                        "assistantMessageEvent": event,
+                        "assistant_message_event": event,
                         "message": partial_message,
                     }
                 )
@@ -305,8 +305,8 @@ async def _execute_tool_calls(
         stream.push(
             {
                 "type": "tool_execution_start",
-                "toolCallId": tool_call.id,
-                "toolName": tool_call.name,
+                "tool_call_id": tool_call.id,
+                "tool_name": tool_call.name,
                 "args": tool_call.arguments,
             }
         )
@@ -324,10 +324,10 @@ async def _execute_tool_calls(
                 lambda partial: stream.push(
                     {
                         "type": "tool_execution_update",
-                        "toolCallId": tool_call.id,
-                        "toolName": tool_call.name,
+                        "tool_call_id": tool_call.id,
+                        "tool_name": tool_call.name,
                         "args": tool_call.arguments,
-                        "partialResult": partial,
+                        "partial_result": partial,
                     }
                 ),
             )
@@ -338,10 +338,10 @@ async def _execute_tool_calls(
         stream.push(
             {
                 "type": "tool_execution_end",
-                "toolCallId": tool_call.id,
-                "toolName": tool_call.name,
+                "tool_call_id": tool_call.id,
+                "tool_name": tool_call.name,
                 "result": result,
-                "isError": is_error,
+                "is_error": is_error,
             }
         )
 
@@ -373,18 +373,18 @@ def _skip_tool_call(tool_call: ToolCall, stream: AgentEventStream) -> ToolResult
     stream.push(
         {
             "type": "tool_execution_start",
-            "toolCallId": tool_call.id,
-            "toolName": tool_call.name,
+            "tool_call_id": tool_call.id,
+            "tool_name": tool_call.name,
             "args": tool_call.arguments,
         }
     )
     stream.push(
         {
             "type": "tool_execution_end",
-            "toolCallId": tool_call.id,
-            "toolName": tool_call.name,
+            "tool_call_id": tool_call.id,
+            "tool_name": tool_call.name,
             "result": result,
-            "isError": True,
+            "is_error": True,
         }
     )
 

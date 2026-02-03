@@ -341,9 +341,9 @@ class Agent:
             if self._session_manager is not None:
                 self._session_manager.append_message(event["message"])
         elif event_type == "tool_execution_start":
-            self._state.pending_tool_calls.add(event["toolCallId"])
+            self._state.pending_tool_calls.add(event["tool_call_id"])
         elif event_type == "tool_execution_end":
-            self._state.pending_tool_calls.discard(event["toolCallId"])
+            self._state.pending_tool_calls.discard(event["tool_call_id"])
         elif event_type == "turn_end":
             message = event.get("message")
             if message is not None and getattr(message, "error_message", None):
